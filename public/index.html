@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#667eea">
+  <title>SOFTLY DIGITAL V3 – CBT Portal</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/portal.css">
+</head>
+<body class="portal-body">
+
+  <header class="portal-header">
+    <div class="portal-header-inner">
+      <div class="portal-logo">
+        <div class="logo-icon">SD</div>
+        <div><div class="logo-title">SOFTLY DIGITAL</div><div class="logo-sub">V3 Enterprise CBT</div></div>
+      </div>
+      <nav class="portal-nav">
+        <a href="#about">About</a>
+        <a href="#contact">Support</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="portal-hero">
+    <div class="hero-shapes">
+      <div class="shape s1"></div><div class="shape s2"></div><div class="shape s3"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">Enterprise CBT Platform</div>
+      <h1>Secure, Reliable &amp;<br>Scalable Examinations</h1>
+      <p>SOFTLY DIGITAL V3 powers high-stakes computer-based testing for institutions across Nigeria and beyond.</p>
+      <a href="#login" class="hero-cta">Access Portal ↓</a>
+    </div>
+  </section>
+
+  <section class="login-portals" id="login">
+    <div class="portals-wrap">
+      <div class="portals-heading">
+        <h2>Select Your Login Portal</h2>
+        <p>Three secure access points — each fully isolated</p>
+      </div>
+      <div class="portal-cards">
+
+        <div class="portal-card" onclick="location.href='html/candidate-login.html'">
+          <div class="card-icon candidate-icon">🎓</div>
+          <h3>Candidate</h3>
+          <p>Take your assigned examinations and view results &amp; certificates.</p>
+          <ul>
+            <li>✓ Device verification</li><li>✓ Secure exam engine</li>
+            <li>✓ Instant results</li><li>✓ PDF certificates</li>
+          </ul>
+          <button class="card-btn candidate-btn">Login as Candidate →</button>
+        </div>
+
+        <div class="portal-card" onclick="location.href='html/invigilator-login.html'">
+          <div class="card-icon invigilator-icon">👁️</div>
+          <h3>Invigilator</h3>
+          <p>Monitor live exams, track violations, manage sessions in real-time.</p>
+          <ul>
+            <li>✓ Role verification</li><li>✓ Live candidate grid</li>
+            <li>✓ Violation tracking</li><li>✓ Activity logs</li>
+          </ul>
+          <button class="card-btn invigilator-btn">Login as Invigilator →</button>
+        </div>
+
+        <div class="portal-card" onclick="location.href='html/admin-login.html'">
+          <div class="card-icon admin-icon">⚙️</div>
+          <h3>Administrator</h3>
+          <p>Full platform control — centres, exams, users, analytics, and AI tools.</p>
+          <ul>
+            <li>✓ Role-verified access</li><li>✓ Manage all entities</li>
+            <li>✓ AI question gen</li><li>✓ Audit logs</li>
+          </ul>
+          <button class="card-btn admin-btn">Admin Login →</button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-band" id="about">
+    <div class="stat-item"><span class="stat-num" data-target="500000">0</span><span class="stat-lbl">Exams Conducted</span></div>
+    <div class="stat-item"><span class="stat-num" data-target="99">0</span><span class="stat-lbl">% Uptime</span></div>
+    <div class="stat-item"><span class="stat-num" data-target="250">0</span><span class="stat-lbl">Partner Institutions</span></div>
+    <div class="stat-item"><span class="stat-num" data-target="36">0</span><span class="stat-lbl">States Covered</span></div>
+  </section>
+
+  <footer class="portal-footer" id="contact">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <strong>SOFTLY DIGITAL V3</strong>
+        <p>Enterprise CBT Platform – Secure. Reliable. Scalable.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Portals</h4>
+        <a href="html/candidate-login.html">Candidate Login</a>
+        <a href="html/invigilator-login.html">Invigilator Login</a>
+        <a href="html/admin-login.html">Admin Login</a>
+      </div>
+      <div class="footer-contact">
+        <h4>Support</h4>
+        <p>support@softlydigital.com</p>
+        <p>+234 800 SOFTLY</p>
+      </div>
+    </div>
+    <div class="footer-bottom">© 2025 SOFTLY DIGITAL. All rights reserved. | V3 Enterprise Edition</div>
+  </footer>
+
+  <!-- Appwrite SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.0/dist/iife/sdk.min.js"></script>
+  <script src="js/appwrite-config.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/rbac.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    // Animate counters
+    document.querySelectorAll('.stat-num').forEach(el => {
+      const target = parseInt(el.dataset.target);
+      let current = 0;
+      const step = target / 60;
+      const timer = setInterval(() => {
+        current += step;
+        if (current >= target) { el.textContent = target.toLocaleString(); clearInterval(timer); }
+        else el.textContent = Math.floor(current).toLocaleString();
+      }, 16);
+    });
+  </script>
+</body>
+</html>

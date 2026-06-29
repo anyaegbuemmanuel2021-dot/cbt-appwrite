@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exam Instructions – SOFTLY DIGITAL V3</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/exam-instructions.css">
+</head>
+<body class="inst-body">
+<div class="inst-wrap">
+  <div class="inst-card">
+    <div class="inst-header">
+      <div class="exam-badge">📚 EXAMINATION</div>
+      <h1 id="examTitle">Loading…</h1>
+      <div class="exam-meta-row">
+        <div class="em-item">⏱️ Duration: <strong id="emDuration">--</strong></div>
+        <div class="em-item">❓ Questions: <strong id="emQuestions">--</strong></div>
+        <div class="em-item">📅 Date: <strong id="emDate">--</strong></div>
+        <div class="em-item">📊 Pass Mark: <strong id="emPass">--%</strong></div>
+      </div>
+    </div>
+    <div class="cand-bar">
+      <img id="candPhoto" src="../assets/images/default-avatar.png" alt="Photo" class="cand-thumb">
+      <div>
+        <strong id="candDisplayName">--</strong>
+        <span id="candDisplayId">ID: --</span>
+      </div>
+      <div class="cand-centre">Centre: <strong id="candCentre">--</strong></div>
+    </div>
+    <div class="inst-body-content">
+      <h2>📋 Examination Instructions</h2>
+      <div class="inst-list">
+        <div class="inst-item"><div class="inst-num">1</div><div><strong>Fullscreen:</strong> The exam runs in fullscreen. Exiting is logged as a violation.</div></div>
+        <div class="inst-item"><div class="inst-num">2</div><div><strong>JAMB Structure:</strong> Questions are grouped by subject. Use the subject tabs to navigate between subjects.</div></div>
+        <div class="inst-item"><div class="inst-num">3</div><div><strong>Navigation:</strong> Use the question palette, arrow keys, or subject tabs to move between questions freely.</div></div>
+        <div class="inst-item"><div class="inst-num">4</div><div><strong>Auto-Save:</strong> Answers are saved locally every 5 seconds and synced to the server every 30 seconds.</div></div>
+        <div class="inst-item"><div class="inst-num">5</div><div><strong>Timer:</strong> A countdown timer is always visible. The exam auto-submits when time expires.</div></div>
+        <div class="inst-item"><div class="inst-num">6</div><div><strong>Anti-Cheat:</strong> Tab switching, copy/paste, DevTools, and multiple logins are monitored. <strong>3 violations = auto-submit.</strong></div></div>
+        <div class="inst-item"><div class="inst-num">7</div><div><strong>Submission:</strong> Review all questions before submitting. Answers cannot be changed after submission.</div></div>
+        <div class="inst-item"><div class="inst-num">8</div><div><strong>Technical Issues:</strong> Inform your invigilator immediately if you experience any problem.</div></div>
+      </div>
+      <div class="ac-warning">
+        <div class="warning-icon">⚠️</div>
+        <div><strong>Security Notice</strong><p>This exam is actively monitored. Any attempt to cheat, access unauthorised resources, or tamper with the system results in immediate disqualification.</p></div>
+      </div>
+      <label class="agree-label">
+        <input type="checkbox" id="agreeCheck" onchange="toggleStart()">
+        I have read and understood all instructions. I agree to abide by the examination rules and academic integrity policy.
+      </label>
+      <div class="sys-check">
+        <h3>🔧 System Check</h3>
+        <div class="sys-checks">
+          <div class="sc-item" id="scFullscreen"><span class="sc-status">⏳</span> Fullscreen API</div>
+          <div class="sc-item" id="scBrowser"><span class="sc-status">⏳</span> Browser Compatibility</div>
+          <div class="sc-item" id="scInternet"><span class="sc-status">⏳</span> Internet Connection</div>
+          <div class="sc-item" id="scFirebase"><span class="sc-status">⏳</span> Appwrite Connection</div>
+        </div>
+      </div>
+    </div>
+    <div class="inst-actions">
+      <button class="btn-back" onclick="location.href='candidate-dashboard.html'">← Back to Dashboard</button>
+      <button class="btn-start" id="startBtn" onclick="startExam()" disabled>🚀 Start Examination</button>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.0/dist/iife/sdk.min.js"></script>
+<script src="../js/appwrite-config.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/exam-instructions.js"></script>
+</body>
+</html>

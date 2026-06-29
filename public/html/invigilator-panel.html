@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invigilator Panel – SOFTLY DIGITAL V3</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/invigilator.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+</head>
+<body class="invigi-body">
+<div class="invigi-layout">
+  <aside class="invigi-sidebar" id="invigiSidebar">
+    <div class="invigi-brand">👁️ INVIGILATOR
+      <button class="sb-close-btn" onclick="document.getElementById('invigiSidebar').classList.toggle('open')" style="margin-left:auto;display:none" id="sidebarCloseBtn">✕</button>
+    </div>
+    <nav class="invigi-nav">
+      <a class="in-item active" data-panel="live"       href="#">📡 Live Monitoring</a>
+      <a class="in-item"        data-panel="candidates" href="#">👥 Candidates</a>
+      <a class="in-item"        data-panel="violations" href="#">⚠️ Violations</a>
+      <a class="in-item"        data-panel="activity"   href="#">📋 Activity Log</a>
+    </nav>
+    <div class="invigi-sf">
+      <div class="invigi-user">
+        <div class="invigi-avatar">👁️</div>
+        <div><div id="invigiName">Invigilator</div><div id="invigiCentre" class="invigi-centre-lbl">Centre</div></div>
+      </div>
+      <button class="invigi-logout" onclick="AuthManager.logout()">🚪 Logout</button>
+    </div>
+  </aside>
+
+  <main class="invigi-main">
+    <div class="invigi-topbar">
+      <div class="it-left">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button onclick="document.getElementById('invigiSidebar').classList.toggle('open');document.getElementById('sidebarCloseBtn').style.display='flex'"
+            style="background:none;border:none;font-size:1.4rem;cursor:pointer;display:none" id="menuBtn">☰</button>
+          <h1 class="it-title" id="invigiPageTitle">Live Exam Monitoring</h1>
+        </div>
+        <div class="exam-selector-wrap">
+          <label>Active Exam:</label>
+          <select id="activeExamSel" onchange="InvigilatorPanel.changeExam(this.value)"><option value="">Loading exams…</option></select>
+        </div>
+      </div>
+      <div class="it-right">
+        <div class="live-ind"><span class="live-dot"></span> LIVE</div>
+        <div class="invigi-clock" id="invigiClock">--:--:--</div>
+        <button class="btn-outline-sm" onclick="InvigilatorPanel.refresh()">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <!-- LIVE PANEL -->
+    <div class="invigi-panel" id="panel-live" style="display:block">
+      <div class="invigi-stats-row">
+        <div class="isc"><div class="isc-ic">👥</div><div><div class="isc-val" id="liveTotal">0</div><div class="isc-lbl">Total</div></div></div>
+        <div class="isc green"><div class="isc-ic">✅</div><div><div class="isc-val" id="liveActive">0</div><div class="isc-lbl">Active</div></div></div>
+        <div class="isc"><div class="isc-ic">📤</div><div><div class="isc-val" id="liveSubmitted">0</div><div class="isc-lbl">Submitted</div></div></div>
+        <div class="isc orange"><div class="isc-ic">⚠️</div><div><div class="isc-val" id="liveViolations">0</div><div class="isc-lbl">Violations</div></div></div>
+        <div class="isc"><div class="isc-ic">⏰</div><div><div class="isc-val" id="liveTimeLeft">--:--</div><div class="isc-lbl">Time Left</div></div></div>
+      </div>
+      <div class="duration-control-card">
+        <label for="examDurationInput">⏱️ Adjust Duration (minutes)</label>
+        <input type="number" id="examDurationInput" min="1" max="600" disabled>
+        <button class="btn-primary-sm" onclick="InvigilatorPanel.saveDuration()" disabled id="saveDurationBtn">Apply</button>
+        <span class="duration-hint">Only affects candidates who have not yet started.</span>
+      </div>
+      <div class="grid-controls">
+        <h3>Candidate Activity Grid</h3>
+        <div class="gc-right">
+          <input type="text" id="candSearch" placeholder="Search…" class="search-input" oninput="InvigilatorPanel.filterGrid(this.value)">
+          <select id="statusFilter" onchange="InvigilatorPanel.filterStatus(this.value)">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="submitted">Submitted</option>
+            <option value="violation">Has Violations</option>
+          </select>
+        </div>
+      </div>
+      <div class="cand-grid" id="candidateGrid"><div class="loading-placeholder">Select an active exam above to begin monitoring.</div></div>
+    </div>
+
+    <!-- CANDIDATES PANEL -->
+    <div class="invigi-panel" id="panel-candidates" style="display:none">
+      <div class="panel-hdr-row">
+        <h3>All Candidates</h3>
+        <button class="btn-outline-sm" onclick="InvigilatorPanel.exportList()">📥 Export Excel</button>
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Photo</th><th>ID</th><th>Name</th><th>Status</th><th>Violations</th><th>Progress</th><th>Action</th></tr></thead>
+          <tbody id="candTableBody"><tr><td colspan="7" class="loading-placeholder">Select an exam first.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- VIOLATIONS PANEL -->
+    <div class="invigi-panel" id="panel-violations" style="display:none">
+      <div class="panel-hdr-row">
+        <h3>⚠️ Violations Log</h3>
+        <button class="btn-outline-sm" onclick="InvigilatorPanel.exportViolations()">📥 Export</button>
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Time</th><th>Candidate</th><th>Type</th><th>Severity</th><th>Total</th><th>Action</th></tr></thead>
+          <tbody id="violTableBody"><tr><td colspan="6" class="loading-placeholder">No violations recorded.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ACTIVITY LOG PANEL -->
+    <div class="invigi-panel" id="panel-activity" style="display:none">
+      <div class="panel-hdr-row">
+        <h3>📋 Activity Log</h3>
+        <div style="display:flex;gap:8px">
+          <select id="actFilter" onchange="InvigilatorPanel.filterActivity()">
+            <option value="all">All</option>
+            <option value="login">Logins</option>
+            <option value="submit">Submissions</option>
+            <option value="violation">Violations</option>
+          </select>
+          <button class="btn-outline-sm" onclick="InvigilatorPanel.exportActivity()">📥 Export</button>
+        </div>
+      </div>
+      <div class="activity-log" id="activityLog"><div class="loading-placeholder">Select exam and switch to Activity Log.</div></div>
+    </div>
+  </main>
+</div>
+
+<!-- Candidate Detail Modal -->
+<div class="modal" id="candDetailModal">
+  <div class="modal-content wide-modal">
+    <div class="modal-header">
+      <h2 id="cdModalTitle">Candidate Detail</h2>
+      <button class="modal-close" onclick="closeModal('candDetailModal')">✕</button>
+    </div>
+    <div class="modal-form" id="candDetailContent"><div class="loading-placeholder">Loading…</div></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.0/dist/iife/sdk.min.js"></script>
+<script src="../js/appwrite-config.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/rbac.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/invigilator-panel.js"></script>
+<script>
+  // Responsive sidebar toggle
+  const menuBtn = document.getElementById('menuBtn');
+  if (window.innerWidth < 769) {
+    menuBtn.style.display = 'flex';
+    document.getElementById('sidebarCloseBtn').style.display = 'flex';
+  }
+  window.addEventListener('resize', () => {
+    menuBtn.style.display = window.innerWidth < 769 ? 'flex' : 'none';
+  });
+</script>
+</body>
+</html>

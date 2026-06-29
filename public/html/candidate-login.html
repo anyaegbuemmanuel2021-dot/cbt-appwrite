@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Candidate Login – SOFTLY DIGITAL V3</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/auth.css">
+</head>
+<body class="auth-body">
+  <a href="../index.html" class="back-link">← Back to Portal</a>
+
+  <!-- STEP 1: Credentials -->
+  <div class="auth-card" id="stepCredentials">
+    <div class="auth-header candidate-hdr">
+      <div class="auth-icon">🎓</div>
+      <h1>Candidate Login</h1>
+      <p>Enter your credentials to access your examination</p>
+    </div>
+    <form id="candidateForm" novalidate>
+      <div class="form-group">
+        <label>Candidate ID / Registration Number</label>
+        <input type="text" id="candidateId" placeholder="e.g. SD2025001234" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Password / PIN</label>
+        <div class="pw-wrap">
+          <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+          <button type="button" class="pw-toggle" onclick="togglePw('password')" aria-label="Show/hide password">👁</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Examination Centre</label>
+        <select id="centreSelect" required>
+          <option value="">-- Select your centre --</option>
+        </select>
+      </div>
+      <div class="notice-box">
+        <span>🔒</span>
+        <div><strong>Device Verification</strong><br>Your device will be verified for exam eligibility.</div>
+      </div>
+      <div class="alert alert-danger" id="loginErr" style="display:none"></div>
+      <button type="submit" class="auth-btn cand-btn" id="loginBtn">
+        <span class="btn-text">Login to Exam Portal</span>
+        <span class="btn-loader" style="display:none">⏳ Verifying…</span>
+      </button>
+      <div class="auth-links">
+        <a href="forgot-password.html">Forgot Password?</a>
+        <span>|</span><a href="../index.html">Back to Portal</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- STEP 2: Device Verification -->
+  <div class="auth-card" id="stepDevice" style="display:none">
+    <div class="auth-header">
+      <div class="auth-icon">🔍</div>
+      <h2>Device Verification</h2>
+      <p>Checking your device for exam eligibility</p>
+    </div>
+    <div class="device-checks">
+      <div class="dcheck" id="dchkBrowser"><span class="dcheck-spin">⏳</span> Browser Compatibility</div>
+      <div class="dcheck" id="dchkFullscreen"><span class="dcheck-spin">⏳</span> Fullscreen Support</div>
+      <div class="dcheck" id="dchkNet"><span class="dcheck-spin">⏳</span> Internet Connection</div>
+      <div class="dcheck" id="dchkFingerprint"><span class="dcheck-spin">⏳</span> Device Fingerprint</div>
+    </div>
+    <div id="deviceResult"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.0/dist/iife/sdk.min.js"></script>
+  <script src="../js/appwrite-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/device-verification.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      AuthManager.loadCentres('centreSelect');
+      document.getElementById('candidateForm').addEventListener('submit', e => {
+        e.preventDefault();
+        AuthManager.candidateLogin();
+      });
+    });
+  </script>
+</body>
+</html>

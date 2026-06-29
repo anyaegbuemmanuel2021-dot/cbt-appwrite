@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exam Results – SOFTLY DIGITAL V3</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/results.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body class="results-body">
+
+  <div id="resultsLoader" class="overlay active">
+    <div class="loading-box"><div class="loading-spinner"></div><p>Computing your results…</p></div>
+  </div>
+
+  <div id="resultsWrap" style="display:none">
+    <header class="results-header">
+      <div class="rh-brand">📚 SOFTLY DIGITAL V3</div>
+      <div class="rh-actions">
+        <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+        <a href="candidate-dashboard.html" class="btn-primary">🏠 Dashboard</a>
+      </div>
+    </header>
+
+    <section class="score-hero">
+      <div class="sh-left">
+        <img id="rCandPhoto" src="../assets/images/default-avatar.png" alt="Photo" class="r-photo">
+        <div>
+          <h2 id="rCandName">--</h2>
+          <p id="rCandId">ID: --</p>
+          <p id="rExamName">Exam: --</p>
+          <p id="rDate">Date: --</p>
+        </div>
+      </div>
+      <div class="sh-center">
+        <div class="donut-wrap">
+          <canvas id="scoreDonut" width="160" height="160"></canvas>
+          <div class="donut-label">
+            <div class="donut-pct" id="scorePercent">0%</div>
+            <div class="donut-grade" id="scoreGrade">--</div>
+          </div>
+        </div>
+      </div>
+      <div class="sh-right">
+        <div class="r-stat"><span class="rs-val" id="rsCorrect">0</span><span class="rs-lbl">Correct</span></div>
+        <div class="r-stat"><span class="rs-val danger" id="rsWrong">0</span><span class="rs-lbl">Wrong</span></div>
+        <div class="r-stat"><span class="rs-val muted" id="rsSkipped">0</span><span class="rs-lbl">Skipped</span></div>
+        <div class="r-stat"><span class="rs-val" id="rsTotal">0</span><span class="rs-lbl">Total</span></div>
+        <div class="pass-fail-badge" id="pfBadge">--</div>
+      </div>
+    </section>
+
+    <section class="analytics-sec">
+      <div class="analytics-grid">
+        <div class="an-card"><h3>📊 Score Analysis</h3><canvas id="scoreChart"></canvas></div>
+        <div class="an-card"><h3>📚 Subject Performance</h3><canvas id="subjectChart"></canvas></div>
+        <div class="an-card">
+          <h3>🎯 Weak Areas</h3>
+          <div id="weakTopics"><div class="loading-placeholder">Analysing…</div></div>
+        </div>
+        <div class="an-card">
+          <h3>⏱️ Time Analysis</h3>
+          <div class="time-stats">
+            <div class="ts-item"><span class="ts-ic">⏱️</span><div><div class="ts-val" id="tsTime">--</div><div class="ts-lbl">Time Taken</div></div></div>
+            <div class="ts-item"><span class="ts-ic">⚡</span><div><div class="ts-val" id="tsAvg">--</div><div class="ts-lbl">Avg per Question</div></div></div>
+            <div class="ts-item"><span class="ts-ic">⏰</span><div><div class="ts-val" id="tsLeft">--</div><div class="ts-lbl">Time Remaining</div></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="breakdown-sec">
+      <div class="bk-header">
+        <h3>📋 Answer Breakdown</h3>
+        <div class="bk-filters">
+          <button class="filter-btn active" onclick="ResultsPage.filterAnswers('all',this)">All</button>
+          <button class="filter-btn" onclick="ResultsPage.filterAnswers('correct',this)">✅ Correct</button>
+          <button class="filter-btn" onclick="ResultsPage.filterAnswers('wrong',this)">❌ Wrong</button>
+          <button class="filter-btn" onclick="ResultsPage.filterAnswers('skipped',this)">⏭️ Skipped</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="answer-table">
+          <thead><tr><th>#</th><th>Question</th><th>Your Answer</th><th>Status</th></tr></thead>
+          <tbody id="answerTableBody"><tr><td colspan="4" class="loading-placeholder">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="cert-section" id="certSection" style="display:none">
+      <div class="cert-card">
+        <div class="cert-icon">🏆</div>
+        <h3>Congratulations! You qualify for a certificate.</h3>
+        <p>You have successfully passed this examination and are eligible for a digital certificate.</p>
+        <div class="cert-actions">
+          <button class="btn-primary" onclick="CertificateManager.download()">📜 Download Certificate (PDF)</button>
+          <button class="btn-outline" onclick="CertificateManager.verify()">🔍 Verify</button>
+        </div>
+        <div id="certQrWrap" style="display:none;text-align:center;margin-top:16px">
+          <img id="certQrCode" src="" alt="QR Code" class="cert-qr">
+          <p class="qr-lbl">Scan to verify your certificate</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="results-footer">
+      <a href="candidate-dashboard.html" class="btn-outline">← Back to Dashboard</a>
+      <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+      <button class="btn-primary" onclick="ResultsPage.downloadReport()">📥 Download Report</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.0/dist/iife/sdk.min.js"></script>
+  <script src="../js/appwrite-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/certificate.js"></script>
+  <script>
+  const ResultsPage = (() => {
+    let resultData = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = await AUTH.current();
+      if (!user) { location.href = 'candidate-login.html'; return; }
+
+      const params   = new URLSearchParams(location.search);
+      const resultId = params.get('resultId');
+      if (!resultId) { location.href = 'candidate-dashboard.html'; return; }
+
+      try {
+        const [result, cand] = await Promise.all([
+          DB.get(SD.COL.RESULTS, resultId),
+          DB.get(SD.COL.CANDIDATES, user.$id).catch(()=>({})),
+        ]);
+        resultData = { id:result.$id, ...result };
+        const exam = await DB.get(SD.COL.EXAMS, result.examId).catch(()=>({}));
+
+        _populateHero(resultData, cand, exam);
+        _drawDonut(resultData.percentage, resultData.grade);
+        _drawScoreChart(resultData);
+        _drawSubjectChart(resultData);
+        _populateWeakTopics(resultData);
+        _populateAnswerTable(resultData);
+        if (resultData.passed) document.getElementById('certSection').style.display = 'block';
+
+        document.getElementById('resultsLoader').classList.remove('active');
+        document.getElementById('resultsWrap').style.display = 'block';
+      } catch(e) {
+        document.getElementById('resultsLoader').innerHTML =
+          `<div class="loading-box"><p style="color:#dc3545">Error: ${e.message}</p><a href="candidate-dashboard.html" class="btn-primary" style="margin-top:16px">← Back</a></div>`;
+      }
+    });
+
+    function _populateHero(r, cand, exam) {
+      const s = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+      s('rCandName',    cand.fullName || '—');
+      s('rCandId',      'ID: '+(cand.candidateId||'—'));
+      s('rExamName',    'Exam: '+(exam.name||r.examId||'—'));
+      s('rDate',        'Date: '+(r.createdAt?new Date(r.createdAt).toLocaleDateString('en-NG'):'—'));
+      s('scorePercent', r.percentage+'%');
+      s('scoreGrade',   r.grade||'—');
+      const wrong = r.totalQuestions - r.correctAnswers;
+      s('rsCorrect', r.correctAnswers); s('rsWrong', wrong<0?0:wrong);
+      s('rsSkipped', r.skipped||0);    s('rsTotal', r.totalQuestions);
+      const photo = document.getElementById('rCandPhoto');
+      if (photo && cand.passportImageUrl) photo.src = cand.passportImageUrl;
+      const badge = document.getElementById('pfBadge');
+      if (badge) { badge.textContent=r.passed?'✅ PASSED':'❌ FAILED'; badge.className='pass-fail-badge '+(r.passed?'badge-pass':'badge-fail'); }
+      const timeSec = r.timeTaken||0;
+      s('tsTime',  `${Math.floor(timeSec/60)}m ${timeSec%60}s`);
+      s('tsAvg',   r.totalQuestions?Math.round(timeSec/r.totalQuestions)+'s':'--');
+      const leftSec = (exam.duration||0)*60 - timeSec;
+      s('tsLeft',  `${Math.floor(Math.max(0,leftSec)/60)} min`);
+    }
+
+    function _drawDonut(pct, grade) {
+      const ctx = document.getElementById('scoreDonut'); if(!ctx||typeof Chart==='undefined') return;
+      const colors = {A:'#28a745',B:'#20c997',C:'#ffc107',D:'#fd7e14',F:'#dc3545'};
+      new Chart(ctx,{type:'doughnut',data:{datasets:[{data:[pct,100-pct],
+        backgroundColor:[colors[grade]||'#667eea','#e9ecef'],borderWidth:0}]},
+        options:{cutout:'76%',plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:1000}}});
+    }
+
+    function _drawScoreChart(r) {
+      const ctx = document.getElementById('scoreChart'); if(!ctx||typeof Chart==='undefined') return;
+      const wrong = Math.max(0, r.totalQuestions - r.correctAnswers - (r.skipped||0));
+      new Chart(ctx,{type:'bar',data:{labels:['Correct','Wrong','Skipped'],
+        datasets:[{data:[r.correctAnswers,wrong,r.skipped||0],
+          backgroundColor:['#28a745','#dc3545','#adb5bd'],borderRadius:6}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+    }
+
+    function _drawSubjectChart(r) {
+      const ctx = document.getElementById('subjectChart'); if(!ctx||typeof Chart==='undefined') return;
+      if (!r.answerBreakdown) return;
+      let breakdown;
+      try { breakdown = JSON.parse(r.answerBreakdown); } catch(_) { return; }
+      // Group by subject
+      const subjectMap = {};
+      Object.values(breakdown).forEach(info => {
+        const subj = info.subject || 'General';
+        if (!subjectMap[subj]) subjectMap[subj] = {correct:0,total:0};
+        subjectMap[subj].total++;
+        if (info.isCorrect) subjectMap[subj].correct++;
+      });
+      const labels = Object.keys(subjectMap);
+      const data   = labels.map(k => Math.round(subjectMap[k].correct/subjectMap[k].total*100));
+      new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Score %',data,
+        backgroundColor:'#667eea',borderRadius:6}]},
+        options:{responsive:true,scales:{y:{min:0,max:100}},plugins:{legend:{display:false}}}});
+    }
+
+    function _populateWeakTopics(r) {
+      const el = document.getElementById('weakTopics'); if(!el) return;
+      if (!r.answerBreakdown) { el.innerHTML='<p class="no-data">No breakdown available.</p>'; return; }
+      let breakdown;
+      try { breakdown = JSON.parse(r.answerBreakdown); } catch(_) { el.innerHTML=''; return; }
+      const topicMap = {};
+      Object.values(breakdown).forEach(info => {
+        const topic = info.topic||info.subject||'General';
+        if (!topicMap[topic]) topicMap[topic]={correct:0,total:0};
+        topicMap[topic].total++;
+        if(info.isCorrect) topicMap[topic].correct++;
+      });
+      const weak = Object.entries(topicMap)
+        .map(([t,d])=>({topic:t,score:Math.round(d.correct/d.total*100)}))
+        .filter(x=>x.score<70).sort((a,b)=>a.score-b.score).slice(0,6);
+      el.innerHTML = weak.length
+        ? weak.map(t=>`<div class="weak-topic-item">
+            <div class="wt-name">${t.topic}</div>
+            <div class="wt-bar-wrap"><div class="wt-bar" style="width:${t.score}%;background:${t.score<50?'#dc3545':'#ffc107'}"></div></div>
+            <div class="wt-score">${t.score}%</div>
+          </div>`).join('')
+        : '<p class="no-data">All topics performed well! 🎉</p>';
+    }
+
+    function _populateAnswerTable(r) {
+      const tbody = document.getElementById('answerTableBody'); if(!tbody) return;
+      if (!r.answerBreakdown) { tbody.innerHTML='<tr><td colspan="4" class="loading-placeholder">No answer data.</td></tr>'; return; }
+      let breakdown;
+      try { breakdown = JSON.parse(r.answerBreakdown); } catch(_) { return; }
+      tbody.innerHTML = Object.entries(breakdown).map(([,info], i) => {
+        const status = info.isCorrect?'correct':info.studentAnswer==='NOT_ANSWERED'?'skipped':'wrong';
+        const cls    = {correct:'td-correct',skipped:'td-skipped',wrong:'td-wrong'}[status];
+        const icon   = {correct:'✅',skipped:'⏭️',wrong:'❌'}[status];
+        const label  = {correct:'Correct',skipped:'Not Answered',wrong:'Incorrect'}[status];
+        return `<tr data-status="${status}">
+          <td>${i+1}</td>
+          <td>${((info.questionText||'').substring(0,80))}…</td>
+          <td class="${status==='wrong'?'td-wrong':''}">${info.studentAnswer==='NOT_ANSWERED'?'—':info.studentAnswer}</td>
+          <td class="${cls}">${icon} ${label}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function filterAnswers(status, btn) {
+      document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+      if(btn) btn.classList.add('active');
+      document.querySelectorAll('#answerTableBody tr').forEach(tr=>
+        tr.style.display=(status==='all'||tr.dataset.status===status)?'':'none');
+    }
+
+    function downloadReport() { window.print(); }
+
+    return { filterAnswers, downloadReport };
+  })();
+  </script>
+</body>
+</html>

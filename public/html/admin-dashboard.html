@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Console – SOFTLY DIGITAL V3</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/admin.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body class="admin-body">
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────────────────── -->
+  <aside class="admin-sidebar" id="adminSidebar">
+    <div class="admin-sb-header">
+      <div class="admin-logo">⚙️</div>
+      <div><div class="admin-brand-title">SOFTLY DIGITAL</div><div class="admin-brand-sub">V3 Admin Console</div></div>
+      <button class="sb-close-btn" onclick="toggleAdminSidebar()">✕</button>
+    </div>
+    <nav class="admin-nav">
+      <div class="nav-sec-label">Overview</div>
+      <a class="admin-nav-item active" data-mod="dashboard" href="#">📊 Dashboard</a>
+
+      <div class="nav-sec-label">Management</div>
+      <a class="admin-nav-item" data-mod="centres"    href="#">🏢 Centres</a>
+      <a class="admin-nav-item" data-mod="exams"      href="#">📝 Exams</a>
+      <a class="admin-nav-item" data-mod="users"      href="#">👥 Users</a>
+      <a class="admin-nav-item" data-mod="candidates" href="#">🎓 Candidates</a>
+
+      <div class="nav-sec-label">Question Bank</div>
+      <a class="admin-nav-item" data-mod="questions"  href="#" data-perm="questions">❓ Questions</a>
+      <a class="admin-nav-item" data-mod="subjects"   href="#" data-perm="subjects">📚 Subjects &amp; Topics</a>
+
+      <div class="nav-sec-label">Results</div>
+      <a class="admin-nav-item" data-mod="results"    href="#" data-perm="results">🏆 Exam Results</a>
+
+      <div class="nav-sec-label">AI Module</div>
+      <a class="admin-nav-item" data-mod="ai"         href="#">🤖 AI Generator</a>
+
+      <div class="nav-sec-label">Analytics</div>
+      <a class="admin-nav-item" data-mod="analytics"  href="#">📈 Analytics &amp; Reports</a>
+
+      <div class="nav-sec-label">System</div>
+      <a class="admin-nav-item" data-mod="notifications" href="#">🔔 Notifications</a>
+      <a class="admin-nav-item" data-mod="audit"      href="#">🔍 Audit Logs</a>
+      <a class="admin-nav-item" data-mod="settings"   href="#">⚙️ Settings</a>
+    </nav>
+    <div class="admin-sb-footer">
+      <div class="admin-user-chip">
+        <div class="admin-avatar">👤</div>
+        <div><div id="adminName">Administrator</div><div id="adminRole" class="admin-role-lbl">Super Admin</div></div>
+      </div>
+      <button class="admin-logout" onclick="AuthManager.logout()">🚪 Logout</button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ─────────────────────────────────────────────────── -->
+  <main class="admin-main" id="adminMain">
+    <div class="admin-topbar">
+      <button class="menu-btn" onclick="toggleAdminSidebar()">☰</button>
+      <div class="admin-topbar-title" id="adminPageTitle">Dashboard Overview</div>
+      <div class="admin-topbar-right">
+        <input type="text" id="globalSearch" class="global-search" placeholder="🔍 Global search…" oninput="AdminDashboard.globalSearch(this.value)">
+        <div class="admin-notif" onclick="AdminDashboard.toggleNotifications()">🔔<span class="badge-count" id="adminNotifBadge" style="display:none">0</span></div>
+        <div class="admin-live"><span class="live-dot"></span>Live</div>
+      </div>
+    </div>
+
+    <!-- ── DASHBOARD ─────────────────────────────────────────────────── -->
+    <div class="admin-mod active" id="mod-dashboard">
+      <div class="mod-header">
+        <h2>Dashboard Overview</h2>
+        <div>
+          <button class="btn-outline-sm" onclick="AdminDashboard.refresh()">🔄 Refresh</button>
+          <button class="btn-primary-sm" onclick="AdminDashboard.exportSummary()">📥 Export</button>
+        </div>
+      </div>
+      <div class="admin-stats-grid">
+        <div class="asc blue">  <div class="asc-ic">👥</div><div><div class="asc-val" id="dCandidates">—</div><div class="asc-lbl">Candidates</div></div></div>
+        <div class="asc green"> <div class="asc-ic">📝</div><div><div class="asc-val" id="dExams">—</div><div class="asc-lbl">Total Exams</div></div></div>
+        <div class="asc red">   <div class="asc-ic">🔴</div><div><div class="asc-val" id="dActive">—</div><div class="asc-lbl">Active Exams</div></div></div>
+        <div class="asc orange"><div class="asc-ic">📤</div><div><div class="asc-val" id="dSubmissions">—</div><div class="asc-lbl">Submissions</div></div></div>
+        <div class="asc teal">  <div class="asc-ic">✅</div><div><div class="asc-val" id="dPassRate">—</div><div class="asc-lbl">Pass Rate</div></div></div>
+        <div class="asc yellow"><div class="asc-ic">⚠️</div><div><div class="asc-val" id="dViolations">—</div><div class="asc-lbl">Violations Today</div></div></div>
+        <div class="asc gray">  <div class="asc-ic">🏢</div><div><div class="asc-val" id="dCentres">—</div><div class="asc-lbl">Active Centres</div></div></div>
+        <div class="asc purple"><div class="asc-ic">🏆</div><div><div class="asc-val" id="dCerts">—</div><div class="asc-lbl">Certificates</div></div></div>
+        <div class="asc blue2"> <div class="asc-ic">🛡️</div><div><div class="asc-val" id="dUsers">—</div><div class="asc-lbl">Staff Users</div></div></div>
+      </div>
+      <div class="dash-charts-row">
+        <div class="dash-chart-card"><h3>📊 Submissions (Last 7 Days)</h3><canvas id="submissionsChart"></canvas></div>
+        <div class="dash-chart-card"><h3>📈 Pass Rate by Exam</h3><canvas id="centrePassChart"></canvas></div>
+      </div>
+      <div class="dash-recent-row">
+        <div class="recent-col"><h3>🕐 Recent Activity</h3><div id="recentActivity"><div class="loading-placeholder">Loading…</div></div></div>
+        <div class="recent-col"><h3>⚠️ Recent Violations</h3><div id="recentViolations"><div class="loading-placeholder">Loading…</div></div></div>
+      </div>
+      <div class="dash-recent-row">
+        <div class="recent-col"><h3>🏢 Candidates per Centre</h3><div id="candidatesPerCentre"><div class="loading-placeholder">Loading…</div></div></div>
+        <div class="recent-col"><h3>📝 Candidates per Exam</h3><div id="candidatesPerExam"><div class="loading-placeholder">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- ── CENTRES ────────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-centres" style="display:none">
+      <div class="mod-header">
+        <h2>🏢 Centre Management</h2>
+        <button class="btn-primary-sm" onclick="CentreManager.showAdd()">+ Add Centre</button>
+      </div>
+      <div class="filter-row">
+        <input type="text" id="centreSearch" placeholder="Search centres…" class="search-input" oninput="CentreManager.filter(this.value)">
+        <select id="centreStatusF" onchange="CentreManager.filterStatus(this.value)">
+          <option value="all">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Code</th><th>Name</th><th>State</th><th>Capacity</th><th>Candidates</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="centresBody"><tr><td colspan="7" class="loading-placeholder">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── EXAMS ──────────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-exams" style="display:none">
+      <div class="mod-header">
+        <h2>📝 Examination Management</h2>
+        <div>
+          <button class="btn-outline-sm" onclick="ExamManager.importExcel?.()">📥 Import Excel</button>
+          <button class="btn-primary-sm" onclick="ExamManager.showCreate()">+ Create Exam</button>
+        </div>
+      </div>
+      <div class="exam-tabs-row">
+        <button class="etab active" onclick="ExamManager.switchTab('all',this)">All Exams</button>
+        <button class="etab" onclick="ExamManager.switchTab('schedule',this)">📅 Schedule</button>
+        <button class="etab" onclick="ExamManager.switchTab('assign',this)">👥 Assign</button>
+        <button class="etab" onclick="ExamManager.switchTab('activate',this)">▶️ Activate</button>
+        <button class="etab" onclick="ExamManager.switchTab('monitor',this)">📡 Monitor</button>
+      </div>
+      <div id="examTabContent">
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Exam Name</th><th>Subject</th><th>Duration</th><th>Questions</th><th>Scheduled</th><th>Status</th><th>Candidates</th><th>Actions</th></tr></thead>
+            <tbody id="examsBody"><tr><td colspan="8" class="loading-placeholder">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── USERS ──────────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-users" style="display:none">
+      <div class="mod-header">
+        <h2>👥 User Management</h2>
+        <button class="btn-primary-sm" onclick="UserManager.showAdd()">+ Add User</button>
+      </div>
+      <div class="role-tabs">
+        <button class="rtab active" data-role="all">All Users</button>
+        <button class="rtab" data-role="admin">Admins</button>
+        <button class="rtab" data-role="examofficer">Exam Officers</button>
+        <button class="rtab" data-role="invigilator">Invigilators</button>
+        <button class="rtab" data-role="resultofficer">Result Officers</button>
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Centre</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
+          <tbody id="usersBody"><tr><td colspan="7" class="loading-placeholder">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── CANDIDATES ─────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-candidates" style="display:none">
+      <div class="mod-header">
+        <h2>🎓 Candidate Management</h2>
+        <div>
+          <button class="btn-outline-sm" onclick="CandidateManager.importExcel()">📥 Import Excel</button>
+          <button class="btn-primary-sm" onclick="CandidateManager.showAdd()">+ Add Candidate</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <input type="text" id="candSearchInput" placeholder="Search by name, ID or email…" class="search-input" oninput="CandidateManager.search(this.value)">
+        <select id="candCentreFilter" onchange="CandidateManager.filterByCentre(this.value)">
+          <option value="all">All Centres</option>
+        </select>
+        <select id="candStatusFilter" onchange="CandidateManager.filterByStatus(this.value)">
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="disabled">Disabled</option>
+          <option value="suspended">Suspended</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Photo</th><th>ID</th><th>Name</th><th>Email</th><th>Centre</th><th>Exams</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="candidatesBody"><tr><td colspan="8" class="loading-placeholder">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div id="candidatesPagination" class="pagination-wrap"></div>
+    </div>
+
+    <!-- ── QUESTIONS ──────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-questions" style="display:none">
+      <div class="mod-header">
+        <h2>❓ Question Bank</h2>
+        <div>
+          <button class="btn-outline-sm" onclick="QuestionManager.importExcel()">📥 Excel Import</button>
+          <button class="btn-primary-sm" onclick="QuestionManager.showAdd()">+ Add Question</button>
+        </div>
+      </div>
+      <div class="q-filters">
+        <select id="qSubjF" onchange="QuestionManager.filter()"><option value="">All Subjects</option></select>
+        <select id="qTopicF" onchange="QuestionManager.filter()"><option value="">All Topics</option></select>
+        <select id="qDiffF" onchange="QuestionManager.filter()">
+          <option value="">All Difficulties</option>
+          <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+        </select>
+        <input type="text" id="qSearchF" placeholder="Search questions…" class="search-input" oninput="QuestionManager.search(this.value)">
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>#</th><th>Question</th><th>Subject</th><th>Topic</th><th>Difficulty</th><th>Used In</th><th>Actions</th></tr></thead>
+          <tbody id="questionsBody"><tr><td colspan="7" class="loading-placeholder">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div id="questionsPagination" class="pagination-wrap"></div>
+    </div>
+
+    <!-- ── SUBJECTS ───────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-subjects" style="display:none">
+      <div class="mod-header">
+        <h2>📚 Subjects, Topics &amp; Subtopics</h2>
+        <button class="btn-primary-sm" onclick="SubjectManager.showAdd()">+ Add Subject</button>
+      </div>
+      <div id="subjectsTree"><div class="loading-placeholder">Loading subjects…</div></div>
+    </div>
+
+    <!-- ── RESULTS ────────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-results" style="display:none">
+      <div class="mod-header">
+        <h2>🏆 Exam Results</h2>
+        <button class="btn-outline-sm" onclick="ResultManager.exportResults()">📥 Export Excel</button>
+      </div>
+      <div class="filter-row">
+        <select id="resExamFilter" onchange="ResultManager.load()"><option value="">All Exams</option></select>
+        <input type="text" id="resSearch" placeholder="Search candidate…" class="search-input" oninput="ResultManager.search(this.value)">
+        <select id="resStatusFilter" onchange="ResultManager.filterStatus(this.value)">
+          <option value="all">All</option><option value="passed">Passed</option><option value="failed">Failed</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Candidate</th><th>Exam</th><th>Score</th><th>Grade</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="resultsBody"><tr><td colspan="7" class="loading-placeholder">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── AI MODULE ──────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-ai" style="display:none">
+      <div class="mod-header"><h2>🤖 AI Question Generator</h2></div>
+      <div class="ai-grid">
+        <div class="ai-card">
+          <div class="ai-ic">✨</div><h3>Generate Questions</h3>
+          <p>AI-powered question generation from subject and topic.</p>
+          <div class="ai-form">
+            <select id="aiSubj" class="ai-input"><option value="">Select Subject</option></select>
+            <input type="text" id="aiTopic" placeholder="Topic (optional)" class="ai-input">
+            <select id="aiDiff" class="ai-input">
+              <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+            </select>
+            <input type="number" id="aiCount" value="5" min="1" max="50" class="ai-input">
+            <button class="btn-ai" onclick="AIModule?.generate()">⚡ Generate</button>
+          </div>
+          <div id="aiGenResult" style="display:none"></div>
+        </div>
+        <div class="ai-card">
+          <div class="ai-ic">📄</div><h3>PDF Extraction</h3>
+          <p>Upload a PDF and extract questions automatically.</p>
+          <div class="ai-upload-box">
+            <input type="file" id="aiPdfInput" accept=".pdf" style="display:none" onchange="AIModule?.extractPdf(this.files[0])">
+            <button class="btn-outline" onclick="document.getElementById('aiPdfInput').click()">📎 Upload PDF</button>
+          </div>
+          <div id="aiPdfResult" style="display:none"></div>
+        </div>
+        <div class="ai-card">
+          <div class="ai-ic">🎚️</div><h3>Difficulty Analysis</h3>
+          <p>Analyze your question bank and get difficulty recommendations.</p>
+          <button class="btn-ai" onclick="AIModule?.analyzeDifficulty()">🔍 Analyze Bank</button>
+          <div id="diffSuggestions" style="display:none"></div>
+        </div>
+        <div class="ai-card">
+          <div class="ai-ic">💡</div><h3>Analytics Insights</h3>
+          <p>AI-powered insights from your exam data.</p>
+          <button class="btn-ai" onclick="AIModule?.generateInsights()">📊 Generate Insights</button>
+          <div id="aiInsights" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ANALYTICS ──────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-analytics" style="display:none">
+      <div class="mod-header">
+        <h2>📈 Analytics &amp; Reports</h2>
+        <div>
+          <button class="btn-outline-sm" onclick="AnalyticsManager?.export()">📥 Export Report</button>
+          <select id="dateRange" onchange="AnalyticsManager?.changeRange(this.value)">
+            <option value="7">Last 7 Days</option><option value="30" selected>Last 30 Days</option>
+            <option value="90">Last 90 Days</option><option value="365">Last Year</option>
+          </select>
+        </div>
+      </div>
+      <div class="analytics-tabs-row">
+        <button class="atab active" onclick="AnalyticsManager?.switchTab('passRate',this)">Pass Rate</button>
+        <button class="atab" onclick="AnalyticsManager?.switchTab('failure',this)">Failure Analysis</button>
+        <button class="atab" onclick="AnalyticsManager?.switchTab('difficulty',this)">Difficulty</button>
+        <button class="atab" onclick="AnalyticsManager?.switchTab('centreRanking',this)">Centre Ranking</button>
+      </div>
+      <div class="analytics-charts-grid" id="analyticsContent">
+        <div class="an-chart-card large"><h3>Pass Rate Analysis</h3><canvas id="passRateChart"></canvas></div>
+        <div class="an-chart-card"><h3>Centre Ranking</h3><canvas id="centreRankChart"></canvas></div>
+        <div class="an-chart-card"><h3>Difficulty Distribution</h3><canvas id="diffDistChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── NOTIFICATIONS ──────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-notifications" style="display:none">
+      <div class="mod-header"><h2>🔔 Notifications</h2></div>
+      <div class="notif-channels">
+        <div class="notif-ch-card">
+          <div class="nc-icon">📧</div><h3>Email Notifications</h3>
+          <input type="text" id="emailSubj" placeholder="Subject" class="notif-input">
+          <textarea id="emailBody" placeholder="Email body…" class="notif-ta"></textarea>
+          <div class="notif-recips">
+            <label><input type="checkbox" value="candidates"> All Candidates</label>
+            <label><input type="checkbox" value="invigilators"> All Invigilators</label>
+            <label><input type="checkbox" value="admins"> All Admins</label>
+          </div>
+          <button class="btn-primary" onclick="NotificationManager?.sendEmail()">📤 Send Email</button>
+        </div>
+        <div class="notif-ch-card">
+          <div class="nc-icon">📱</div><h3>SMS Notifications</h3>
+          <textarea id="smsBody" placeholder="SMS (max 160 chars)…" class="notif-ta" maxlength="160"
+            oninput="document.getElementById('smsCount').textContent=this.value.length"></textarea>
+          <div class="char-count"><span id="smsCount">0</span>/160</div>
+          <button class="btn-primary" onclick="NotificationManager?.sendSms()">📤 Send SMS</button>
+        </div>
+        <div class="notif-ch-card">
+          <div class="nc-icon">🔔</div><h3>Push Notifications</h3>
+          <input type="text" id="pushTitle" placeholder="Title" class="notif-input">
+          <textarea id="pushBody" placeholder="Notification body…" class="notif-ta"></textarea>
+          <button class="btn-primary" onclick="NotificationManager?.sendPush()">📤 Send Push</button>
+        </div>
+      </div>
+      <div class="notif-hist">
+        <h3>Notification History</h3>
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Date/Time</th><th>Type</th><th>Subject</th><th>Recipients</th><th>Status</th></tr></thead>
+            <tbody id="notifHistBody"><tr><td colspan="5" class="loading-placeholder">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AUDIT LOGS ─────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-audit" style="display:none">
+      <div class="mod-header">
+        <h2>🔍 Audit Logs</h2>
+        <button class="btn-outline-sm" onclick="AuditManager?.export()">📥 Export Logs</button>
+      </div>
+      <div class="audit-filters">
+        <select id="auditType" onchange="AuditManager?.filter()">
+          <option value="all">All Types</option><option value="login">Login</option>
+          <option value="exam">Exam</option><option value="security">Security</option><option value="admin">Admin Actions</option>
+        </select>
+        <select id="auditSeverity" onchange="AuditManager?.filter()">
+          <option value="all">All Severities</option><option value="INFO">Info</option>
+          <option value="WARNING">Warning</option><option value="ERROR">Error</option><option value="CRITICAL">Critical</option>
+        </select>
+        <input type="date" id="auditFrom" onchange="AuditManager?.filter()" class="date-input">
+        <input type="date" id="auditTo"   onchange="AuditManager?.filter()" class="date-input">
+        <input type="text" id="auditSearch" placeholder="Search logs…" class="search-input" oninput="AuditManager?.search(this.value)">
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Timestamp</th><th>Action</th><th>User</th><th>Details</th><th>Severity</th></tr></thead>
+          <tbody id="auditBody"><tr><td colspan="5" class="loading-placeholder">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ───────────────────────────────────────────────────── -->
+    <div class="admin-mod" id="mod-settings" style="display:none">
+      <div class="mod-header"><h2>⚙️ System Settings</h2></div>
+      <div class="settings-grid">
+
+        <div class="settings-card">
+          <h3>🔧 General</h3>
+          <div class="form-group"><label>Platform Name</label><input type="text" id="sPlatformName" value="SOFTLY DIGITAL V3"></div>
+          <div class="form-group"><label>Passing Percentage (%)</label><input type="number" id="sPassPercent" value="70" min="0" max="100"></div>
+          <div class="form-group"><label>Session Timeout (min)</label><input type="number" id="sSessionTimeout" value="60" min="5"></div>
+          <div class="form-group"><label>Max Violations Before Auto-Submit</label><input type="number" id="sMaxViol" value="3" min="1" max="10"></div>
+          <div class="form-group"><label>Auto-Save Interval (sec)</label><input type="number" id="sAutoSave" value="5" min="1"></div>
+          <div class="form-group"><label>Sync Interval (sec)</label><input type="number" id="sSyncInterval" value="30" min="10"></div>
+          <button class="btn-primary" onclick="SettingsManager.saveGeneral()">💾 Save General</button>
+        </div>
+
+        <div class="settings-card">
+          <h3>🔒 Security</h3>
+          <div class="toggle-group"><label>Auto-lock after failed logins</label><input type="checkbox" id="sAutoLock" checked class="toggle-cb"></div>
+          <div class="toggle-group"><label>Device Verification</label><input type="checkbox" id="sDeviceVerif" checked class="toggle-cb"></div>
+          <div class="toggle-group"><label>Tab Switch Detection</label><input type="checkbox" id="sTabSwitch" checked class="toggle-cb"></div>
+          <div class="toggle-group"><label>Fullscreen Enforcement</label><input type="checkbox" id="sFullscreen" checked class="toggle-cb"></div>
+          <div class="toggle-group"><label>DevTools Detection</label><input type="checkbox" id="sDevtools" checked class="toggle-cb"></div>
+          <div class="toggle-group"><label>Copy/Paste Detection</label><input type="checkbox" id="sCopyPaste" checked class="toggle-cb"></div>
+          <div class="toggle-group"><label>Single Active Session</label><input type="checkbox" id="sSingleSession" checked class="toggle-cb"></div>
+          <div class="toggle-group"><label>Bot Detection</label><input type="checkbox" id="sBotDetect" checked class="toggle-cb"></div>
+          <button class="btn-primary" onclick="SettingsManager.saveSecurity()">💾 Save Security</button>
+        </div>
+
+        <div class="settings-card">
+          <h3>🤖 AI Configuration</h3>
+          <div class="form-group">
+            <label>OpenAI API Key</label>
+            <div class="pw-wrap">
+              <input type="password" id="sOpenAiKey" placeholder="sk-…" autocomplete="off">
+              <button type="button" class="pw-toggle" onclick="togglePw('sOpenAiKey')" aria-label="Toggle key visibility">👁</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Model</label>
+            <select id="sOpenAiModel">
+              <option value="gpt-4o-mini">gpt-4o-mini (fast, recommended)</option>
+              <option value="gpt-4o">gpt-4o (higher quality)</option>
+              <option value="gpt-3.5-turbo">gpt-3.5-turbo (legacy)</option>
+            </select>
+          </div>
+          <button class="btn-primary" onclick="SettingsManager.saveAI()">💾 Save AI Config</button>
+        </div>
+
+        <div class="settings-card">
+          <h3>🏆 Certificate Settings</h3>
+          <div class="toggle-group"><label>Auto Certificate Generation</label><input type="checkbox" id="sAutoCert" checked class="toggle-cb"></div>
+          <div class="toggle-group"><label>QR Code on Certificate</label><input type="checkbox" id="sCertQR" checked class="toggle-cb"></div>
+          <div class="form-group"><label>Minimum Score for Certificate (%)</label><input type="number" id="sCertScore" value="70"></div>
+          <button class="btn-primary" onclick="SettingsManager.saveCertificate()">💾 Save</button>
+        </div>
+
+        <div class="settings-card">
+          <h3>📧 Email / SMS Config</h3>
+          <div class="form-group"><label>SMTP Host</label><input type="text" id="sSmtpHost" placeholder="smtp.example.com"></div>
+          <div class="form-group"><label>SMTP Port</label><input type="number" id="sSmtpPort" value="587"></div>
+          <div class="form-group"><label>From Email</label><input type="email" id="sFromEmail" placeholder="noreply@example.com"></div>
+          <div class="form-group">
+            <label>SMS Provider</label>
+            <select id="sSmsProvider">
+              <option value="termii">Termii</option><option value="twilio">Twilio</option><option value="africastalking">Africa's Talking</option>
+            </select>
+          </div>
+          <button class="btn-primary" onclick="SettingsManager.saveEmailSms()">💾 Save Config</button>
+        </div>
+
+        <div class="settings-card">
+          <h3>☁️ Cloudinary Config</h3>
+          <div class="form-group"><label>Cloud Name</label><input type="text" id="sCloudName" placeholder="your-cloud-name"></div>
+          <div class="form-group">
+            <label>Upload Preset (unsigned)</label>
+            <input type="text" id="sCloudPreset" placeholder="cbt_softly_unsigned">
+          </div>
+          <p class="settings-hint">Images (passports, question diagrams) are stored on Cloudinary. Only the URL is saved in Appwrite DB.</p>
+          <button class="btn-primary" onclick="SettingsManager.saveCloudinary?.()">💾 Save</button>
+        </div>
+
+      </div>
+    </div>
+
+  </main><!-- /admin-main -->
+
+  <!-- ══════════════ MODALS ══════════════ -->
+
+  <!-- Centre Modal -->
+  <div class="modal" id="centreModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="centreModalTitle">Add Centre</h2>
+        <button class="modal-close" onclick="closeModal('centreModal')">✕</button>
+      </div>
+      <form id="centreForm" class="modal-form" onsubmit="CentreManager.save(event)">
+        <div class="form-row">
+          <div class="form-group"><label>Centre Code *</label><input type="text" name="code" placeholder="CTR001" required></div>
+          <div class="form-group"><label>Centre Name *</label><input type="text" name="name" placeholder="Centre Name" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>State *</label><input type="text" name="state" required></div>
+          <div class="form-group"><label>Capacity *</label><input type="number" name="capacity" required></div>
+        </div>
+        <div class="form-group"><label>Address</label><textarea name="address"></textarea></div>
+        <div class="form-group">
+          <label>Centre Image <span class="field-hint">(optional — logo or photo)</span></label>
+          <input type="file" id="centreImageInput" accept="image/*">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-outline" onclick="closeModal('centreModal')">Cancel</button>
+          <button type="submit" class="btn-primary">Save Centre</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Exam Modal -->
+  <div class="modal" id="examModal">
+    <div class="modal-content wide-modal">
+      <div class="modal-header">
+        <h2 id="examModalTitle">Create Examination</h2>
+        <button class="modal-close" onclick="closeModal('examModal')">✕</button>
+      </div>
+      <form id="examForm" class="modal-form" onsubmit="ExamManager.save(event)">
+        <div class="form-row">
+          <div class="form-group"><label>Exam Name *</label><input type="text" name="name" placeholder="e.g. JAMB Biology 2025" required></div>
+          <div class="form-group"><label>Subject *</label><select name="subjectId" required><option value="">Select Subject</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Duration (min) *</label><input type="number" name="duration" value="60" min="1" required></div>
+          <div class="form-group"><label>Total Questions *</label><input type="number" name="totalQuestions" value="50" min="1" required></div>
+          <div class="form-group"><label>Pass Score (%) *</label><input type="number" name="passingScore" value="70" min="0" max="100" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Scheduled Start</label><input type="datetime-local" name="scheduledStart"></div>
+          <div class="form-group"><label>Scheduled End</label><input type="datetime-local" name="scheduledEnd"></div>
+        </div>
+        <div class="form-group">
+          <label>Assign Centres</label>
+          <select name="centreIds" id="examFormCentres" multiple size="4"></select>
+          <span class="field-hint">Hold Ctrl/Cmd to select multiple. Questions are fetched by subject tag.</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group toggle-group"><label>Randomize Questions</label><input type="checkbox" name="randomizeQuestions" checked class="toggle-cb"></div>
+          <div class="form-group toggle-group"><label>Shuffle Options</label><input type="checkbox" name="shuffleOptions" checked class="toggle-cb"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-outline" onclick="closeModal('examModal')">Cancel</button>
+          <button type="submit" class="btn-primary">Save Exam</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- User Modal -->
+  <div class="modal" id="userModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="userModalTitle">Add User</h2>
+        <button class="modal-close" onclick="closeModal('userModal')">✕</button>
+      </div>
+      <form id="userForm" class="modal-form" onsubmit="UserManager.save(event)">
+        <div class="form-row">
+          <div class="form-group"><label>Full Name *</label><input type="text" name="fullName" required></div>
+          <div class="form-group"><label>Email *</label><input type="email" name="email" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Role *</label>
+            <select name="role" required>
+              <option value="admin">Admin</option>
+              <option value="examofficer">Exam Officer</option>
+              <option value="resultofficer">Result Officer</option>
+              <option value="questionmanager">Question Manager</option>
+              <option value="invigilator">Invigilator</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Assigned Centre</label><select name="centreId"><option value="">Select Centre</option></select></div>
+        </div>
+        <div class="form-group">
+          <label>Temporary Password *</label>
+          <div class="pw-wrap">
+            <input type="password" id="userPw" name="tempPassword" placeholder="Min 8 characters" autocomplete="new-password">
+            <button type="button" class="pw-toggle" onclick="togglePw('userPw')" aria-label="Toggle password">👁</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-outline" onclick="closeModal('userModal')">Cancel</button>
+          <button type="submit" class="btn-primary">Save User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Candidate Modal -->
+  <div class="modal" id="candidateModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="candidateModalTitle">Add Candidate</h2>
+        <button class="modal-close" onclick="closeModal('candidateModal')">✕</button>
+      </div>
+      <form id="candidateForm" class="modal-form" onsubmit="CandidateManager.save(event)">
+        <div class="form-row">
+          <div class="form-group"><label>Candidate ID *</label><input type="text" name="candidateId" placeholder="e.g. SD2025001234" required></div>
+          <div class="form-group"><label>Full Name *</label><input type="text" name="fullName" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Email *</label><input type="email" name="email" required></div>
+          <div class="form-group"><label>Phone</label><input type="text" name="phone"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Centre *</label><select id="candFormCentre" name="centreId" required><option value="">Select Centre</option></select></div>
+          <div class="form-group"><label>Gender</label><select name="gender"><option value="">—</option><option>Male</option><option>Female</option></select></div>
+        </div>
+        <div class="form-group"><label>Date of Birth</label><input type="date" name="dob"></div>
+        <div class="form-group">
+          <label>Passport Photo <span class="field-hint">(required for candidates)</span></label>
+          <input type="file" id="candImageInput" accept="image/jpeg,image/png,image/webp">
+          <div id="candImgPreview" style="margin-top:8px"></div>
+        </div>
+        <p class="field-hint">Default password = Candidate ID. Candidate must change on first login.</p>
+        <div class="modal-footer">
+          <button type="button" class="btn-outline" onclick="closeModal('candidateModal')">Cancel</button>
+          <button type="submit" class="btn-primary" id="saveCandidateBtn">Save Candidate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Question Modal -->
+  <div class="modal" id="questionModal">
+    <div class="modal-content wide-modal">
+      <div class="modal-header">
+        <h2 id="questionModalTitle">Add Question</h2>
+        <button class="modal-close" onclick="closeModal('questionModal')">✕</button>
+      </div>
+      <form id="questionForm" class="modal-form" onsubmit="QuestionManager.save(event)">
+        <div class="form-group"><label>Question Text *</label><textarea name="text" rows="3" required placeholder="Type the question text here…"></textarea></div>
+        <div class="form-group">
+          <label>Question Image <span class="field-hint">(optional diagram/image)</span></label>
+          <input type="file" name="image" accept="image/*">
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Option A *</label><input type="text" name="optionA" required></div>
+          <div class="form-group"><label>Option B *</label><input type="text" name="optionB" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Option C *</label><input type="text" name="optionC" required></div>
+          <div class="form-group"><label>Option D *</label><input type="text" name="optionD" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Correct Answer *</label>
+            <select name="correctAnswer" required><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select>
+          </div>
+          <div class="form-group"><label>Subject *</label><select name="subjectId" required><option value="">Select Subject</option></select></div>
+          <div class="form-group"><label>Topic</label><select name="topicId"><option value="">Select Topic</option></select></div>
+          <div class="form-group">
+            <label>Difficulty *</label>
+            <select name="difficulty" required><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+          </div>
+        </div>
+        <div class="form-group"><label>Explanation <span class="field-hint">(staff only, not shown to candidates)</span></label><textarea name="explanation" rows="2"></textarea></div>
+        <div class="modal-footer">
+          <button type="button" class="btn-outline" onclick="closeModal('questionModal')">Cancel</button>
+          <button type="submit" class="btn-primary">Save Question</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Result Detail Modal -->
+  <div class="modal" id="resultDetailModal">
+    <div class="modal-content wide-modal">
+      <div class="modal-header">
+        <h2 id="resultDetailTitle">Result Detail</h2>
+        <button class="modal-close" onclick="closeModal('resultDetailModal')">✕</button>
+      </div>
+      <div class="modal-form">
+        <div id="resultDetailContent"><div class="loading-placeholder">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SCRIPTS ─────────────────────────────────────────────────────── -->
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.0/dist/iife/sdk.min.js"></script>
+  <script src="../js/appwrite-config.js"></script>
+  <script src="../js/icons.js"></script>
+  <script src="../js/rbac.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/managers.js"></script>
+  <script src="../js/candidate-manager.js"></script>
+  <script src="../js/question-manager.js"></script>
+  <script src="../js/ai-module.js"></script>
+  <script src="../js/analytics-manager.js"></script>
+  <script src="../js/notification-manager.js"></script>
+  <script src="../js/audit-manager.js"></script>
+  <script src="../js/admin-dashboard.js"></script>
+  <script>
+    // Image preview for candidate photo upload
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('candImageInput')?.addEventListener('change', function() {
+        const file = this.files[0]; if(!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+          document.getElementById('candImgPreview').innerHTML =
+            `<img src="${e.target.result}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:2px solid #ddd">`;
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+  </script>
+</body>
+</html>

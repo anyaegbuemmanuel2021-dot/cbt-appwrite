@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Examination – SOFTLY DIGITAL V3</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/exam.css">
+</head>
+<body class="exam-body" oncontextmenu="return false">
+
+  <!-- ── LOADING SCREEN ─────────────────────────────────────────── -->
+  <div id="loadingScreen" class="overlay active">
+    <div class="loading-box">
+      <div class="loading-spinner"></div>
+      <p>Initializing Secure Examination…</p>
+      <div class="load-steps">
+        <div id="ls1">⏳ Loading exam data</div>
+        <div id="ls2">⏳ Loading questions by subject</div>
+        <div id="ls3">⏳ Randomising &amp; shuffling options</div>
+        <div id="ls4">⏳ Starting security monitor</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIOLATION WARNING ───────────────────────────────────────── -->
+  <div id="violationModal" class="overlay">
+    <div class="modal-box warn-box">
+      <div class="mb-icon">⚠️</div>
+      <h2>Security Violation Detected</h2>
+      <p id="violationMsg">A security violation has been detected.</p>
+      <div class="violation-count">Violations: <strong id="vCount">1</strong> / 3</div>
+      <p class="viol-note">3 violations = automatic exam submission</p>
+      <button class="modal-btn primary" onclick="ExamEngine.dismissViolation()">I Understand — Return to Exam</button>
+    </div>
+  </div>
+
+  <!-- ── AUTO-SUBMIT MODAL ──────────────────────────────────────── -->
+  <div id="autoSubmitModal" class="overlay">
+    <div class="modal-box danger-box">
+      <div class="mb-icon">🚨</div>
+      <h2>Exam Auto-Submitted</h2>
+      <p id="autoSubmitMsg">Your exam was automatically submitted.</p>
+      <p>Redirecting in <strong id="asTimer">5</strong>s…</p>
+    </div>
+  </div>
+
+  <!-- ── SUBMIT CONFIRM ─────────────────────────────────────────── -->
+  <div id="submitModal" class="overlay">
+    <div class="modal-box">
+      <div class="mb-icon">📤</div>
+      <h2>Submit Examination?</h2>
+      <div class="submit-summary">
+        <div class="ss-row"><span>Answered:</span><span id="smAnswered">0</span></div>
+        <div class="ss-row"><span>Unanswered:</span><span id="smUnanswered" class="danger">0</span></div>
+        <div class="ss-row"><span>Total Questions:</span><span id="smTotal">0</span></div>
+      </div>
+      <p><strong>You cannot change your answers after submission.</strong></p>
+      <div class="modal-btns">
+        <button class="modal-btn secondary" onclick="ExamEngine.closeSubmitModal()">Continue Exam</button>
+        <button class="modal-btn primary" onclick="ExamEngine.confirmSubmit()">Submit Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SUCCESS MODAL ──────────────────────────────────────────── -->
+  <div id="successModal" class="overlay">
+    <div class="modal-box success-box">
+      <div class="mb-icon">✅</div>
+      <h2>Exam Submitted Successfully!</h2>
+      <p>Your answers have been recorded. Grading in progress…</p>
+      <p>Redirecting in <strong id="succTimer">5</strong>s</p>
+    </div>
+  </div>
+
+  <!-- ── EXAM HEADER ────────────────────────────────────────────── -->
+  <header class="exam-header" id="examHeader">
+    <div class="eh-left">
+      <div class="eh-brand">📚 SOFTLY DIGITAL V3</div>
+      <div class="eh-exam-title" id="ehTitle">Loading…</div>
+    </div>
+    <div class="eh-center">
+      <div class="timer-label">Time Remaining</div>
+      <div class="timer-display" id="timerDisplay">00:00:00</div>
+    </div>
+    <div class="eh-right">
+      <span class="info-chip">Q: <strong id="ehQCount">-/-</strong></span>
+      <span class="info-chip">Saved: <span id="savedStatus">⏳</span></span>
+      <span class="info-chip viol-chip" id="violChip" style="display:none">⚠️ <strong id="ehViolations">0</strong>/3</span>
+    </div>
+  </header>
+
+  <!-- ── EXAM LAYOUT ─────────────────────────────────────────────── -->
+  <div class="exam-layout">
+
+    <!-- LEFT: Subject tabs + Progress -->
+    <aside class="exam-left">
+      <!-- JAMB-style subject tabs -->
+      <div class="panel-sec">
+        <div class="panel-head">📚 Subjects</div>
+        <div id="subjectTabs" class="subject-tabs"></div>
+      </div>
+      <div class="panel-sec">
+        <div class="panel-head">⏱️ Elapsed</div>
+        <div class="elapsed" id="elapsedDisplay">00:00:00</div>
+      </div>
+      <div class="panel-sec">
+        <div class="panel-head">📈 Progress</div>
+        <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%">0%</div></div>
+        <div class="progress-lbl"><span id="answeredCount">0</span> of <span id="totalQCount">0</span> answered</div>
+      </div>
+      <div class="panel-sec mini-guide">
+        <div class="panel-head">ℹ️ Legend</div>
+        <div class="guide-item"><span class="dot answered-dot"></span> Answered</div>
+        <div class="guide-item"><span class="dot flagged-dot"></span> Flagged</div>
+        <div class="guide-item"><span class="dot unanswered-dot"></span> Not answered</div>
+      </div>
+    </aside>
+
+    <!-- CENTER: Question -->
+    <main class="exam-center">
+      <div class="question-card" id="questionCard">
+        <div class="q-header">
+          <span class="q-badge" id="qBadge">Q 1</span>
+          <span class="q-meta" id="qMeta">Subject → Topic</span>
+          <span class="q-diff" id="qDiff"></span>
+        </div>
+        <div class="q-text" id="qText">Loading question…</div>
+        <div class="q-img-wrap" id="qImgWrap" style="display:none">
+          <img id="qImg" src="" alt="Question Image" class="q-img">
+        </div>
+        <div class="options-list" id="optionsList"></div>
+        <div class="q-actions">
+          <button class="nav-btn secondary" id="prevBtn" onclick="ExamEngine.prev()">← Previous</button>
+          <button class="flag-btn" id="flagBtn" onclick="ExamEngine.toggleFlag()" title="Flag for review">🚩</button>
+          <button class="nav-btn primary"   id="nextBtn" onclick="ExamEngine.next()">Next →</button>
+        </div>
+      </div>
+
+      <!-- Horizontal question row (JAMB-style numbered palette) -->
+      <div class="question-row-card">
+        <div class="qrow-head">
+          <span class="panel-head" style="margin:0">All Questions</span>
+          <div class="palette-legend">
+            <span class="pl-item answered">Answered</span>
+            <span class="pl-item flagged">Flagged</span>
+            <span class="pl-item">Unanswered</span>
+          </div>
+        </div>
+        <div class="question-row" id="questionRow"></div>
+      </div>
+
+      <div class="submit-row">
+        <p>When done reviewing all questions, submit your exam.</p>
+        <button class="submit-exam-btn" onclick="ExamEngine.requestSubmit()">📤 Submit Examination</button>
+      </div>
+    </main>
+
+    <!-- RIGHT: Palette (desktop only) -->
+    <aside class="exam-right">
+      <div class="panel-sec">
+        <div class="panel-head">🗂️ Question Palette</div>
+        <div class="palette-legend">
+          <span class="pl-item answered">Answered</span>
+          <span class="pl-item flagged">Flagged</span>
+          <span class="pl-item">Unanswered</span>
+        </div>
+        <div class="question-palette" id="questionPalette"></div>
+      </div>
+      <div class="panel-sec">
+        <div class="panel-head">📊 Status</div>
+        <div class="status-mini">
+          <div><span class="dot answered-dot"></span>Answered: <strong id="palAnswered">0</strong></div>
+          <div><span class="dot flagged-dot"></span>Flagged: <strong id="palFlagged">0</strong></div>
+          <div><span class="dot unanswered-dot"></span>Not answered: <strong id="palUnanswered">0</strong></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.0/dist/iife/sdk.min.js"></script>
+  <script src="../js/appwrite-config.js"></script>
+  <script src="../js/icons.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/anti-cheat.js"></script>
+  <script src="../js/exam-engine.js"></script>
+  <script src="../js/exam-timer.js"></script>
+  <script src="../js/exam-sync.js"></script>
+</body>
+</html>

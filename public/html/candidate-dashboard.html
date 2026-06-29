@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Dashboard – SOFTLY DIGITAL V3</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body class="dash-body">
+
+  <!-- Sidebar -->
+  <aside class="sidebar cand-sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sb-logo">SD</div>
+      <span>SOFTLY DIGITAL</span>
+      <button class="sb-close" onclick="toggleSidebar()">✕</button>
+    </div>
+    <nav class="sb-nav">
+      <a class="sb-item active" data-sec="dashboard" href="#">🏠 Dashboard</a>
+      <a class="sb-item" data-sec="exams"     href="#">📝 My Exams</a>
+      <a class="sb-item" data-sec="results"   href="#">📊 My Results</a>
+      <a class="sb-item" data-sec="certs"     href="#">🏆 Certificates</a>
+      <a class="sb-item" data-sec="profile"   href="#">👤 My Profile</a>
+    </nav>
+    <div class="sb-footer">
+      <button class="logout-btn" onclick="AuthManager.logout()">🚪 Logout</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="dash-main" id="dashMain">
+    <div class="topbar">
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <div class="topbar-title" id="pageTitle">Dashboard</div>
+      <div class="topbar-right">
+        <div class="notif-bell" onclick="CandidateDashboard.toggleNotifs?.()">🔔<span class="badge-dot" id="notifBadge" style="display:none"></span></div>
+        <div class="user-chip" id="userChip">👤</div>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <section class="sec active" id="sec-dashboard">
+      <div class="sec-header">
+        <h2>Welcome back, <span id="candName">Candidate</span>! 👋</h2>
+        <p>Here is your exam overview</p>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-ic">📝</div><div><div class="stat-val" id="sAssigned">0</div><div class="stat-lbl">Assigned</div></div></div>
+        <div class="stat-card"><div class="stat-ic">⏳</div><div><div class="stat-val" id="sPending">0</div><div class="stat-lbl">Pending</div></div></div>
+        <div class="stat-card"><div class="stat-ic">✅</div><div><div class="stat-val" id="sCompleted">0</div><div class="stat-lbl">Completed</div></div></div>
+        <div class="stat-card"><div class="stat-ic">🏆</div><div><div class="stat-val" id="sPassed">0</div><div class="stat-lbl">Passed</div></div></div>
+      </div>
+      <div class="dash-block">
+        <div class="block-hdr"><h3>📅 Upcoming Exams</h3><a href="#" onclick="showSection('exams')">View All →</a></div>
+        <div id="upcomingExams" class="exam-cards-grid"><div class="loading-placeholder">Loading…</div></div>
+      </div>
+      <div class="dash-block">
+        <div class="block-hdr"><h3>📊 Recent Results</h3><a href="#" onclick="showSection('results')">View All →</a></div>
+        <div id="recentResults"><div class="loading-placeholder">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- My Exams -->
+    <section class="sec" id="sec-exams" style="display:none">
+      <div class="sec-header"><h2>📝 My Assigned Exams</h2><p>All examinations assigned to you</p></div>
+      <div id="examList" class="exam-cards-grid"><div class="loading-placeholder">Loading…</div></div>
+    </section>
+
+    <!-- My Results -->
+    <section class="sec" id="sec-results" style="display:none">
+      <div class="sec-header"><h2>📊 My Results</h2><p>Detailed performance analysis</p></div>
+      <div id="resultsList"><div class="loading-placeholder">Loading…</div></div>
+    </section>
+
+    <!-- Certificates -->
+    <section class="sec" id="sec-certs" style="display:none">
+      <div class="sec-header"><h2>🏆 My Certificates</h2><p>Download your achievement certificates</p></div>
+      <div id="certsList"><div class="loading-placeholder">Loading…</div></div>
+    </section>
+
+    <!-- Profile -->
+    <section class="sec" id="sec-profile" style="display:none">
+      <div class="sec-header"><h2>👤 My Profile</h2></div>
+      <div class="profile-card">
+        <div class="profile-photo-wrap">
+          <img id="profilePhoto" src="../assets/images/default-avatar.png" alt="Photo" class="profile-photo">
+          <button class="change-photo-btn" onclick="document.getElementById('photoInput').click()">📷 Change Photo</button>
+          <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="CandidateDashboard.updatePhoto(event)">
+        </div>
+        <div id="profileInfo"><div class="loading-placeholder">Loading profile…</div></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Identity Verification Modal -->
+  <div class="modal" id="verifyModal" style="display:none">
+    <div class="modal-content">
+      <h2 class="modal-title">📷 Identity Verification</h2>
+      <p class="modal-msg">Take a live photo to verify your identity before starting the exam.</p>
+      <video id="camFeed" autoplay playsinline class="camera-feed"></video>
+      <canvas id="captureCanvas" style="display:none"></canvas>
+      <img id="capturedImg" src="" alt="" class="captured-img" style="display:none">
+      <div class="modal-btns" id="captureControls">
+        <button class="modal-btn primary" onclick="CandidateDashboard.capturePhoto()">📸 Capture Photo</button>
+      </div>
+      <div class="modal-btns" id="confirmControls" style="display:none">
+        <button class="modal-btn secondary" onclick="CandidateDashboard.retakePhoto()">Retake</button>
+        <button class="modal-btn primary" onclick="CandidateDashboard.confirmVerification()">Confirm &amp; Start Exam</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.0/dist/iife/sdk.min.js"></script>
+  <script src="../js/appwrite-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/candidate-dashboard.js"></script>
+</body>
+</html>

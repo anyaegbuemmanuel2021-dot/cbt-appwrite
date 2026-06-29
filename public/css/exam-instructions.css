@@ -1,0 +1,71 @@
+/* SOFTLY DIGITAL V3 — exam-instructions.css */
+.inst-body{min-height:100vh;background:var(--gray-100);display:flex;
+  align-items:flex-start;justify-content:center;padding:20px}
+.inst-wrap{width:100%;max-width:720px;margin:0 auto}
+.inst-card{background:#fff;border-radius:var(--r-xl);box-shadow:var(--shadow-lg);
+  overflow:hidden;margin:20px 0}
+.inst-header{background:linear-gradient(135deg,var(--dark),var(--dark-l));
+  color:#fff;padding:28px 28px 24px;text-align:center}
+.exam-badge{display:inline-block;background:rgba(102,126,234,.3);
+  border:1px solid rgba(102,126,234,.5);color:rgba(255,255,255,.85);
+  font-size:.72rem;font-weight:700;padding:4px 14px;border-radius:var(--r-full);
+  margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px}
+.inst-header h1{font-size:clamp(1.2rem,4vw,1.7rem);font-weight:800;margin-bottom:14px}
+.exam-meta-row{display:flex;justify-content:center;flex-wrap:wrap;gap:14px}
+.em-item{font-size:.85rem;color:rgba(255,255,255,.75);display:flex;align-items:center;gap:4px}
+.em-item strong{color:#fff}
+.cand-bar{display:flex;align-items:center;gap:14px;padding:16px 24px;
+  background:var(--primary-xl);border-bottom:1px solid var(--primary-l);flex-wrap:wrap}
+.cand-thumb{width:50px;height:50px;border-radius:50%;object-fit:cover;
+  border:2px solid var(--primary);flex-shrink:0}
+.cand-bar strong{display:block;font-size:.95rem;font-weight:700;color:var(--dark)}
+.cand-bar span{font-size:.8rem;color:var(--gray-600)}
+.cand-centre{margin-left:auto;font-size:.82rem;color:var(--gray-600);white-space:nowrap}
+.inst-body-content{padding:24px 28px}
+.inst-body-content h2{font-size:1rem;font-weight:700;color:var(--dark);margin-bottom:16px}
+.inst-list{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+.inst-item{display:flex;gap:14px;align-items:flex-start}
+.inst-num{width:28px;height:28px;background:var(--primary);color:#fff;
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:.8rem;font-weight:800;flex-shrink:0;margin-top:2px}
+.inst-item>div{font-size:.875rem;color:var(--gray-700);line-height:1.6}
+.inst-item strong{display:block;color:var(--dark);margin-bottom:2px}
+.ac-warning{display:flex;gap:14px;padding:16px 18px;background:var(--danger-l);
+  border:1px solid #f5c6cb;border-radius:var(--r-lg);margin-bottom:20px}
+.warning-icon{font-size:1.6rem;flex-shrink:0}
+.ac-warning strong{display:block;color:var(--danger-d);margin-bottom:4px}
+.ac-warning p{font-size:.82rem;color:var(--danger-d);line-height:1.5}
+.agree-label{display:flex;align-items:flex-start;gap:10px;cursor:pointer;
+  font-size:.875rem;font-weight:500;color:var(--dark);margin-bottom:20px;line-height:1.5}
+.agree-label input[type=checkbox]{width:20px;height:20px;accent-color:var(--primary);
+  flex-shrink:0;margin-top:2px;cursor:pointer}
+.sys-check h3{font-size:.9rem;font-weight:700;color:var(--dark);margin-bottom:12px}
+.sys-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
+.sc-item{display:flex;align-items:center;gap:8px;padding:10px 14px;
+  background:var(--gray-100);border-radius:var(--r);font-size:.82rem;
+  color:var(--gray-700);font-weight:500}
+.sc-status{font-size:1.1rem}
+.inst-actions{display:flex;justify-content:space-between;align-items:center;
+  padding:20px 28px;border-top:1px solid var(--gray-200);flex-wrap:wrap;gap:12px}
+.btn-back{padding:11px 22px;background:var(--gray-200);color:var(--gray-700);
+  border:none;border-radius:var(--r);cursor:pointer;font-size:.9rem;
+  font-weight:600;transition:all var(--tr);min-height:46px}
+.btn-back:hover{background:var(--gray-300)}
+.btn-start{padding:13px 36px;background:linear-gradient(135deg,var(--success),#20c997);
+  color:#fff;border:none;border-radius:var(--r);cursor:pointer;
+  font-size:1rem;font-weight:800;transition:all var(--tr);min-height:50px}
+.btn-start:hover:not(:disabled){transform:translateY(-2px);
+  box-shadow:0 8px 24px rgba(40,167,69,.4)}
+.btn-start:disabled{opacity:.4;cursor:not-allowed}
+
+@media(max-width:600px){
+  .inst-card{border-radius:var(--r-lg);margin:10px 0}
+  .inst-header{padding:20px 16px}
+  .cand-bar{padding:12px 16px}
+  .inst-body-content{padding:16px}
+  .inst-actions{padding:14px 16px}
+  .sys-checks{grid-template-columns:1fr}
+  .btn-start{width:100%}
+  .btn-back{width:100%}
+  .inst-actions{flex-direction:column}
+}

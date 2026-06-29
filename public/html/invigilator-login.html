@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invigilator Login – SOFTLY DIGITAL V3</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/auth.css">
+</head>
+<body class="auth-body">
+  <a href="../index.html" class="back-link">← Back to Portal</a>
+
+  <div class="auth-card">
+    <div class="auth-header invigilator-hdr">
+      <div class="auth-icon">👁️</div>
+      <h1>Invigilator Login</h1>
+      <p>Monitor and manage live examinations</p>
+    </div>
+    <form id="invigilatorForm" novalidate>
+      <div class="form-group">
+        <label>Staff ID</label>
+        <input type="text" id="staffId" placeholder="e.g. INV2025001" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+          <button type="button" class="pw-toggle" onclick="togglePw('password')" aria-label="Show/hide password">👁</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Examination Centre</label>
+        <select id="centreSelect" required>
+          <option value="">-- Select your centre --</option>
+        </select>
+      </div>
+      <div class="alert alert-danger" id="loginErr" style="display:none"></div>
+      <button type="submit" class="auth-btn invigilator-btn" id="loginBtn">
+        <span class="btn-text">Login to Monitoring Panel</span>
+        <span class="btn-loader" style="display:none">⏳ Verifying…</span>
+      </button>
+      <div class="auth-links">
+        <a href="forgot-password.html">Forgot Password?</a>
+        <span>|</span><a href="../index.html">Back to Portal</a>
+      </div>
+    </form>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.0/dist/iife/sdk.min.js"></script>
+  <script src="../js/appwrite-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      AuthManager.loadCentres('centreSelect');
+      document.getElementById('invigilatorForm').addEventListener('submit', e => {
+        e.preventDefault();
+        AuthManager.invigilatorLogin();
+      });
+    });
+  </script>
+</body>
+</html>

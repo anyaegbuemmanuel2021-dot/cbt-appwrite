@@ -1,0 +1,115 @@
+/* SOFTLY DIGITAL V3 — portal.css | Landing page responsive */
+.portal-body{min-height:100vh;background:var(--dark);color:#fff}
+.portal-header{background:rgba(26,26,46,.95);backdrop-filter:blur(8px);
+  position:sticky;top:0;z-index:100;border-bottom:1px solid rgba(255,255,255,.08)}
+.portal-header-inner{max-width:1200px;margin:0 auto;padding:14px 24px;
+  display:flex;justify-content:space-between;align-items:center;gap:16px}
+.portal-logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--primary),#764ba2);
+  border-radius:var(--r);display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:1rem;flex-shrink:0}
+.logo-title{font-weight:800;font-size:.95rem;letter-spacing:.5px}
+.logo-sub{font-size:.7rem;color:rgba(255,255,255,.5)}
+.portal-nav{display:flex;gap:20px}
+.portal-nav a{color:rgba(255,255,255,.7);font-size:.875rem;font-weight:500;
+  transition:color var(--tr);padding:4px 0}
+.portal-nav a:hover{color:#fff}
+
+/* HERO */
+.portal-hero{min-height:90vh;display:flex;align-items:center;justify-content:center;
+  text-align:center;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);padding:40px 24px}
+.hero-shapes{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.shape{position:absolute;border-radius:50%;opacity:.06}
+.s1{width:400px;height:400px;background:var(--primary);top:-100px;left:-80px}
+.s2{width:300px;height:300px;background:#764ba2;bottom:-60px;right:-60px}
+.s3{width:200px;height:200px;background:var(--success);top:40%;right:15%}
+.hero-content{max-width:700px;margin:0 auto;position:relative;z-index:1}
+.hero-badge{display:inline-block;background:rgba(102,126,234,.2);
+  border:1px solid rgba(102,126,234,.4);color:rgba(255,255,255,.85);
+  font-size:.8rem;font-weight:700;padding:6px 18px;border-radius:var(--r-full);
+  margin-bottom:20px;letter-spacing:.5px;text-transform:uppercase}
+.hero-content h1{font-size:clamp(2rem,6vw,3.2rem);font-weight:900;
+  line-height:1.15;margin-bottom:20px;
+  background:linear-gradient(135deg,#fff,rgba(255,255,255,.7));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-content p{font-size:clamp(.9rem,2.5vw,1.1rem);color:rgba(255,255,255,.65);
+  margin-bottom:36px;line-height:1.7;max-width:560px;margin-left:auto;margin-right:auto}
+.hero-cta{display:inline-flex;align-items:center;gap:8px;padding:14px 36px;
+  background:linear-gradient(135deg,var(--primary),#764ba2);color:#fff;
+  border-radius:var(--r-full);font-size:1rem;font-weight:700;
+  transition:all var(--tr);text-decoration:none}
+.hero-cta:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(102,126,234,.5);color:#fff}
+
+/* PORTAL CARDS */
+.login-portals{padding:80px 24px;background:#f8f9fa}
+.portals-wrap{max-width:1200px;margin:0 auto}
+.portals-heading{text-align:center;margin-bottom:48px}
+.portals-heading h2{font-size:clamp(1.5rem,4vw,2.2rem);font-weight:800;color:var(--dark);margin-bottom:8px}
+.portals-heading p{color:var(--gray-600);font-size:.95rem}
+.portal-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:28px;max-width:1000px;margin:0 auto}
+.portal-card{background:#fff;border-radius:var(--r-xl);padding:36px 28px;
+  box-shadow:var(--shadow-md);cursor:pointer;border:2px solid transparent;
+  transition:all .3s ease;display:flex;flex-direction:column;gap:14px}
+.portal-card:hover{transform:translateY(-6px);box-shadow:var(--shadow-xl);border-color:var(--primary)}
+.card-icon{font-size:2.8rem;width:64px;height:64px;border-radius:var(--r-lg);
+  display:flex;align-items:center;justify-content:center}
+.candidate-icon{background:var(--primary-l)}
+.invigilator-icon{background:var(--success-l)}
+.admin-icon{background:var(--danger-l)}
+.portal-card h3{font-size:1.2rem;font-weight:800;color:var(--dark)}
+.portal-card p{font-size:.875rem;color:var(--gray-600);line-height:1.6}
+.portal-card ul{list-style:none;display:flex;flex-direction:column;gap:6px;margin:0}
+.portal-card ul li{font-size:.82rem;color:var(--gray-700);display:flex;align-items:center;gap:6px}
+.card-btn{margin-top:auto;padding:12px 20px;border:none;border-radius:var(--r);
+  cursor:pointer;font-size:.9rem;font-weight:700;transition:all var(--tr);
+  width:100%;min-height:46px}
+.candidate-btn{background:linear-gradient(135deg,var(--primary),#764ba2);color:#fff}
+.invigilator-btn{background:linear-gradient(135deg,var(--success),#20c997);color:#fff}
+.admin-btn{background:linear-gradient(135deg,var(--danger),#c82333);color:#fff}
+.card-btn:hover{opacity:.9;transform:translateY(-1px)}
+
+/* STATS BAND */
+.stats-band{background:linear-gradient(135deg,var(--dark),var(--dark-l));
+  padding:60px 24px;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:24px;
+  max-width:100%;text-align:center}
+.stat-item{display:flex;flex-direction:column;align-items:center;gap:6px}
+.stat-num{font-size:2.4rem;font-weight:900;color:#fff}
+.stat-lbl{font-size:.82rem;color:rgba(255,255,255,.55);font-weight:500}
+
+/* FOOTER */
+.portal-footer{background:#0a0b14;padding:60px 24px 30px;color:rgba(255,255,255,.7)}
+.footer-inner{max-width:1100px;margin:0 auto;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:36px;margin-bottom:36px}
+.footer-brand strong{display:block;font-size:1rem;font-weight:800;margin-bottom:8px;color:#fff}
+.footer-brand p{font-size:.82rem;line-height:1.6}
+.footer-links h4,.footer-contact h4{font-size:.82rem;text-transform:uppercase;
+  letter-spacing:1px;font-weight:700;margin-bottom:12px;color:rgba(255,255,255,.4)}
+.footer-links a{display:block;font-size:.875rem;color:rgba(255,255,255,.6);
+  margin-bottom:6px;transition:color var(--tr)}
+.footer-links a:hover{color:#fff}
+.footer-contact p{font-size:.875rem;margin-bottom:4px}
+.footer-bottom{border-top:1px solid rgba(255,255,255,.08);padding-top:20px;
+  text-align:center;font-size:.78rem;color:rgba(255,255,255,.35);
+  max-width:1100px;margin:0 auto}
+
+@media(max-width:768px){
+  .portal-header-inner{flex-wrap:wrap;padding:12px 16px}
+  .portal-nav{gap:14px}
+  .portal-hero{min-height:70vh;padding:60px 16px}
+  .login-portals{padding:60px 16px}
+  .portals-heading{margin-bottom:32px}
+  .portal-cards{grid-template-columns:1fr;max-width:400px}
+  .stats-band{padding:40px 16px;gap:16px}
+  .stat-num{font-size:2rem}
+  .portal-footer{padding:40px 16px 20px}
+}
+@media(max-width:480px){
+  .portal-nav{display:none}
+  .hero-content h1{font-size:1.8rem}
+  .hero-cta{padding:12px 28px;font-size:.9rem}
+  .portal-card{padding:24px 20px}
+  .card-btn{padding:11px}
+}
