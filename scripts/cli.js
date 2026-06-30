@@ -102,7 +102,7 @@ function makeClients(apiKey) {
     client,
     databases: new sdk.Databases(client),
     users:     new sdk.Users(client),
-    projects:  new sdk.Projects(client),
+    /*projects:  new sdk.Projects(client),*/
   };
 }
 
@@ -667,7 +667,7 @@ async function cmdAddPlatform(clients) {
   const hostname = await ask(`  Enter your hostname (e.g. localhost or yourdomain.com): `);
   if (!hostname) { console.log(warn('No hostname entered.')); return; }
   try {
-    await clients.projects.createPlatform(
+    /*await clients.projects.createPlatform*/(
       CONFIG.PROJECT_ID,
       sdk.PlatformType.Web,
       hostname.replace(/https?:\/\//,'').split('/')[0],
