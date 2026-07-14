@@ -206,6 +206,7 @@ async function main() {
   await safe(() => databases.createCollection(DB_ID, 'exam_sessions', 'Exam Sessions', PERMS), 'Collection: exam_sessions');
   await attr('string',  DB_ID, 'exam_sessions', 'candidateId', { size:50, required:true });
   await attr('string',  DB_ID, 'exam_sessions', 'examId',      { size:50, required:true });
+  await attr('integer', DB_ID, 'exam_sessions', 'duration',    { required:false, default:0 });
   await attr('string',  DB_ID, 'exam_sessions', 'startTime',   { size:30 });
   await attr('string',  DB_ID, 'exam_sessions', 'submittedAt', { size:30 });
   await attr('string',  DB_ID, 'exam_sessions', 'status',      { size:20, default:'active' });

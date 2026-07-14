@@ -58,7 +58,7 @@ const ExamEngine = (() => {
 
       if (!qRes.documents.length) throw new Error('No questions found for this exam.');
 
-      allQuestions = qRes.documents.map(d => ({ id: d.$id, ...d, options: _normalizeOptions(d) }));
+      allQuestions = qRes.documents.map(d => ({ id: d.$id, ...d }));
 
       // Randomise if enabled
       if (exam.randomizeQuestions !== false) allQuestions = _shuffle(allQuestions);
@@ -528,26 +528,6 @@ const ExamEngine = (() => {
     const result  = {};
     entries.forEach(([, val], i) => { result[letters[i]] = val; });
     return result;
-  }
-
-  /** Normalize a question document's options into a plain {A:text, B:text, ...} object.
-   *  Handles: options stored as JSON string, options already an object,
-   *  or falls back to individual optionA/optionB/optionC/optionD fields. */
-  function _normalizeOptions(d) {
-    let opts = d.options;
-    if (typeof opts === 'string') {
-      try { opts = JSON.parse(opts); } catch (_) { opts = null; }
-    }
-    if (opts && typeof opts === 'object' && !Array.isArray(opts) && Object.keys(opts).length) {
-      return opts;
-    }
-    // Fallback to discrete optionA-D fields
-    const fallback = {};
-    ['A','B','C','D','E'].forEach(letter => {
-      const val = d['option' + letter];
-      if (val !== undefined && val !== null && val !== '') fallback[letter] = val;
-    });
-    return fallback;
   }
 
   function _setEl(id, val) { const el = document.getElementById(id); if(el) el.textContent = val; }
