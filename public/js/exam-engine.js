@@ -36,11 +36,18 @@ const ExamEngine = (() => {
       /* ── Step 2: Load questions by subject (JAMB style) ── */
       _setStep('ls2', '⏳ Loading questions…');
       // Questions linked to exam by examId field OR by subjectId if exam has subjectIds[]
+      // Appwrite may store subjectIds as a JSON string rather than a real array, so parse it safely.
+      let subjectIds = exam.subjectIds;
+      if (typeof subjectIds === 'string') {
+        try { subjectIds = JSON.parse(subjectIds); } catch(_) { subjectIds = subjectIds ? [subjectIds] : []; }
+      }
+      if (!Array.isArray(subjectIds)) subjectIds = [];
+
       let qRes;
-      if (exam.subjectIds && exam.subjectIds.length) {
+      if (subjectIds.length) {
         // Multi-subject exam — fetch per subject in parallel
         const perSubject = await Promise.all(
-          exam.subjectIds.map(sid =>
+          subjectIds.map(sid =>
             DB.list(SD.COL.QUESTIONS, [SD.Q.equal('subjectId', sid)], exam.totalQuestions || 200)
           )
         );
