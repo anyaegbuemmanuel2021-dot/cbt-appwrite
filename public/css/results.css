@@ -102,3 +102,7 @@
   .r-stat{padding:8px 14px}
   .rs-val{font-size:1.3rem}
 }
+
+/* ── Submit → Result flow: black button theme (results page only) ── */
+.results-body .btn-primary{background:#111;color:#fff}
+.results-body .btn-primary:hover{background:#000;box-shadow:0 4px 12px rgba(0,0,0,.4)}

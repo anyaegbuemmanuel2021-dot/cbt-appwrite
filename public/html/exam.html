@@ -76,14 +76,18 @@
   <!-- ── EXAM HEADER ────────────────────────────────────────────── -->
   <header class="exam-header" id="examHeader">
     <div class="eh-left">
-      <div class="eh-brand">📚 SOFTLY DIGITAL V3</div>
-      <div class="eh-exam-title" id="ehTitle">Loading…</div>
+      <img id="candPhoto" class="eh-avatar" src="../assets/images/default-avatar.png" alt="Candidate">
+      <div class="eh-cand-info">
+        <div class="eh-cand-name" id="candName">Candidate</div>
+        <div class="eh-exam-title" id="ehTitle">Loading…</div>
+      </div>
     </div>
     <div class="eh-center">
       <div class="timer-label">Time Remaining</div>
       <div class="timer-display" id="timerDisplay">00:00:00</div>
     </div>
     <div class="eh-right">
+      <span class="info-chip subj-chip" id="ehSubject">—</span>
       <span class="info-chip">Q: <strong id="ehQCount">-/-</strong></span>
       <span class="info-chip">Saved: <span id="savedStatus">⏳</span></span>
       <span class="info-chip viol-chip" id="violChip" style="display:none">⚠️ <strong id="ehViolations">0</strong>/3</span>

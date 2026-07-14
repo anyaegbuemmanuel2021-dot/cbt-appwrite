@@ -6,14 +6,20 @@
 .exam-header{height:56px;background:var(--dark);border-bottom:1px solid rgba(255,255,255,.1);
   display:flex;align-items:center;justify-content:space-between;
   padding:0 16px;gap:12px;flex-shrink:0;z-index:50}
-.eh-brand{font-weight:700;font-size:.82rem;color:rgba(255,255,255,.7);white-space:nowrap}
-.eh-exam-title{font-weight:700;font-size:.95rem;color:#fff;flex:1;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 12px}
+.eh-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;
+  border:2px solid rgba(255,255,255,.25);background:#2a2d42}
+.eh-cand-info{display:flex;flex-direction:column;line-height:1.25;overflow:hidden}
+.eh-cand-name{font-weight:700;font-size:.85rem;color:#fff;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.eh-exam-title{font-weight:500;font-size:.68rem;color:rgba(255,255,255,.5);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
 .timer-label{font-size:.65rem;color:rgba(255,255,255,.5);text-align:center}
 .timer-display{font-size:1.4rem;font-weight:800;font-family:monospace;
   color:#fff;letter-spacing:1px;text-align:center;line-height:1}
 .info-chip{font-size:.75rem;background:rgba(255,255,255,.1);padding:4px 10px;
   border-radius:var(--r-full);white-space:nowrap;color:rgba(255,255,255,.85)}
+.subj-chip{background:var(--primary)!important;color:#fff!important;font-weight:700;
+  letter-spacing:.3px}
 .viol-chip{background:rgba(220,53,69,.2)!important;color:var(--danger)!important}
 .eh-left,.eh-center,.eh-right{display:flex;align-items:center;gap:8px}
 .eh-center{flex-direction:column;gap:0}
@@ -85,11 +91,10 @@
 .option-item:hover{background:rgba(102,126,234,.1);border-color:rgba(102,126,234,.4)}
 .option-item.selected{background:rgba(102,126,234,.2);border-color:var(--primary);
   box-shadow:0 0 0 2px rgba(102,126,234,.3)}
-.opt-letter{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.2);
-  display:flex;align-items:center;justify-content:center;font-size:.8rem;
-  font-weight:700;flex-shrink:0;color:rgba(255,255,255,.8)}
-.option-item.selected .opt-letter{background:var(--primary);border-color:var(--primary);color:#fff}
-.opt-text{font-size:.9rem;color:rgba(255,255,255,.85);line-height:1.5;padding-top:2px}
+.opt-letter{min-width:24px;flex-shrink:0;font-size:.92rem;font-weight:800;
+  color:rgba(255,255,255,.75)}
+.option-item.selected .opt-letter{color:var(--primary)}
+.opt-text{font-size:.9rem;color:rgba(255,255,255,.85);line-height:1.5;padding-top:1px}
 
 /* Nav buttons */
 .q-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -121,10 +126,10 @@
 /* Submit row */
 .submit-row{text-align:center;padding:12px 0;flex-shrink:0}
 .submit-row p{font-size:.85rem;color:rgba(255,255,255,.5);margin-bottom:10px}
-.submit-exam-btn{padding:14px 40px;background:linear-gradient(135deg,var(--success),#20c997);
+.submit-exam-btn{padding:14px 40px;background:#111;
   color:#fff;border:none;border-radius:var(--r-lg);cursor:pointer;
   font-size:1rem;font-weight:700;transition:all var(--tr);min-height:50px}
-.submit-exam-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(40,167,69,.4)}
+.submit-exam-btn:hover{background:#000;transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.5)}
 
 /* RIGHT SIDEBAR */
 .exam-right{width:200px;min-width:200px;background:#16192a;
@@ -197,3 +202,7 @@
   .q-text{font-size:.88rem}
   .opt-text{font-size:.82rem}
 }
+
+/* ── SUBMIT FLOW — black button theme (exam page only) ──────────── */
+.exam-body .modal-btn.primary{background:#111;color:#fff}
+.exam-body .modal-btn.primary:hover{background:#000}

@@ -22,6 +22,18 @@ const ExamEngine = (() => {
     const user = await AUTH.current();
     if (!user) { location.href = 'candidate-login.html'; return; }
 
+    // Populate header: candidate photo + name
+    try {
+      const candDoc = await DB.get(SD.COL.CANDIDATES, user.$id);
+      const nameEl  = document.getElementById('candName');
+      const photoEl = document.getElementById('candPhoto');
+      if (nameEl)  nameEl.textContent = candDoc.fullName || user.name || 'Candidate';
+      if (photoEl && candDoc.passportImageUrl) photoEl.src = candDoc.passportImageUrl;
+    } catch (_) {
+      const nameEl = document.getElementById('candName');
+      if (nameEl) nameEl.textContent = user.name || 'Candidate';
+    }
+
     const params = new URLSearchParams(location.search);
     const examId = params.get('examId') || localStorage.getItem('currentExamId');
     if (!examId) { _setStep('ls1','❌ No exam ID provided'); return; }
@@ -198,6 +210,8 @@ const ExamEngine = (() => {
     document.getElementById('qBadge').textContent = `Q ${globalIdx + 1}`;
     document.getElementById('qMeta').textContent  = [q.subject, q.topic].filter(Boolean).join(' → ');
     document.getElementById('ehQCount').textContent = `${globalIdx + 1}/${allQuestions.length}`;
+    const subjChip = document.getElementById('ehSubject');
+    if (subjChip) subjChip.textContent = (q.subject || activeSubject || '—').toUpperCase();
 
     // Difficulty
     const diff = document.getElementById('qDiff');
@@ -219,7 +233,7 @@ const ExamEngine = (() => {
     Object.entries(opts).forEach(([letter, text]) => {
       const div = document.createElement('div');
       div.className = 'option-item' + (answers[q.id] === letter ? ' selected' : '');
-      div.innerHTML = `<span class="opt-letter">${letter}</span><span class="opt-text">${text}</span>`;
+      div.innerHTML = `<span class="opt-letter">${letter}:</span><span class="opt-text">${text}</span>`;
       div.onclick = () => selectAnswer(q.id, letter);
       list.appendChild(div);
     });
