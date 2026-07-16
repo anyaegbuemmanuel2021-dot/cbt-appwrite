@@ -52,6 +52,12 @@ const ExamSync = (() => {
   function _setSavedStatus(text) {
     const el = document.getElementById('savedStatus');
     if (el) el.textContent = text;
+
+    // Examina UI autosave pill
+    const pill = document.getElementById('autosavePill');
+    const pillText = document.getElementById('autosaveText');
+    if (pillText) pillText.textContent = /saving|syncing/i.test(text) ? 'Saving…' : /offline/i.test(text) ? 'Offline' : 'Saved';
+    if (pill) pill.classList.toggle('is-saving', /saving|syncing/i.test(text));
   }
 
   async function forceSync() { await _syncToAppwrite(); }

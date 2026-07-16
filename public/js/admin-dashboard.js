@@ -191,14 +191,16 @@ const AdminDashboard = (() => {
 
   async function globalSearch(q) {
     if (!q || q.length < 2) return;
-    try {
-      const [cands, exams] = await Promise.all([
-        DB.list(SD.COL.CANDIDATES, [SD.Q.search('fullName', q)], 5),
-        DB.list(SD.COL.EXAMS,      [SD.Q.search('name', q)],     5),
-      ]);
-      console.log('Search results:', cands.total + exams.total, 'found');
-      // TODO: render global search results dropdown
-    } catch(_) {}
+    const [candsRes, examsRes] = await Promise.allSettled([
+      DB.list(SD.COL.CANDIDATES, [SD.Q.search('fullName', q)], 5),
+      DB.list(SD.COL.EXAMS,      [SD.Q.search('name', q)],     5),
+    ]);
+    const cands = candsRes.status === 'fulfilled' ? candsRes.value : { total: 0, documents: [] };
+    const exams = examsRes.status === 'fulfilled' ? examsRes.value : { total: 0, documents: [] };
+    if (examsRes.status === 'rejected') console.warn('Exam search failed (missing fulltext index on exams.name?):', examsRes.reason?.message);
+    if (candsRes.status === 'rejected') console.warn('Candidate search failed:', candsRes.reason?.message);
+    console.log('Search results:', cands.total + exams.total, 'found');
+    // TODO: render global search results dropdown
   }
 
   function refresh() { loadDashboard(); }

@@ -251,6 +251,7 @@ async function buildCollections(db) {
   await idx(db,'exams','idx_active',   'key',['active'],   ['ASC']);
   await idx(db,'exams','idx_subjectId','key',['subjectId'],['ASC']);
   await idx(db,'exams','idx_status',   'key',['status'],   ['ASC']);
+  await idx(db,'exams','idx_examName', 'fulltext',['name'],['ASC']);
 
   /* ── QUESTIONS ── */
   await col('questions','Questions');

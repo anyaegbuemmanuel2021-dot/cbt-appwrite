@@ -29,6 +29,7 @@ const ExamEngine = (() => {
       const photoEl = document.getElementById('candPhoto');
       if (nameEl)  nameEl.textContent = candDoc.fullName || user.name || 'Candidate';
       if (photoEl && candDoc.passportImageUrl) photoEl.src = candDoc.passportImageUrl;
+      _setEl('candidateReg', candDoc.candidateId || '—');
     } catch (_) {
       const nameEl = document.getElementById('candName');
       if (nameEl) nameEl.textContent = user.name || 'Candidate';
@@ -43,7 +44,7 @@ const ExamEngine = (() => {
       _setStep('ls1', '✅ Exam data loaded');
       const examDoc = await DB.get(SD.COL.EXAMS, examId);
       exam = { id: examDoc.$id, ...examDoc };
-      document.getElementById('ehTitle').textContent = exam.name;
+      _setEl('ehTitle', exam.name);
 
       /* ── Step 2: Load questions by subject (JAMB style) ── */
       _setStep('ls2', '⏳ Loading questions…');
@@ -146,33 +147,55 @@ const ExamEngine = (() => {
       _buildSubjectTabs();
 
       /* ── Hide loading, show exam ── */
-      document.getElementById('loadingScreen').classList.remove('active');
-      document.getElementById('totalQCount').textContent = allQuestions.length;
-      document.getElementById('ehQCount').textContent = `1/${allQuestions.length}`;
+      _setEl('totalQCount', allQuestions.length);
+      _setEl('ehQCount', `1/${allQuestions.length}`);
 
       // Show first subject
       activeSubject = Object.keys(subjectMap)[0];
       renderQuestion(0);
       updatePalette();
 
+      document.getElementById('loadingScreen')?.classList.add('is-hidden');
+      document.getElementById('app')?.classList.add('is-ready');
+      document.getElementById('app')?.setAttribute('aria-hidden', 'false');
+
     } catch(err) {
       console.error('ExamEngine init error:', err);
-      document.querySelector('.load-steps').innerHTML =
+      const stepsEl = document.querySelector('.load-steps');
+      if (stepsEl) stepsEl.innerHTML =
         `<div style="color:#dc3545;padding:12px">❌ ${err.message}<br><small>Please contact your invigilator.</small></div>`;
+      else alert('Failed to load exam: ' + err.message);
     }
   }
 
   /* ── SUBJECT TABS (JAMB structure) ─────────────────────────────── */
   function _buildSubjectTabs() {
-    const container = document.getElementById('subjectTabs');
-    if (!container) return;
+    const legacyContainer = document.getElementById('subjectTabs');
+    const listContainer   = document.getElementById('subjectList');
     const subjects = Object.keys(subjectMap);
-    container.innerHTML = subjects.map(s => `
-      <button class="subj-tab ${s === activeSubject ? 'active' : ''}"
-              onclick="ExamEngine.switchSubject('${s}')" data-subj="${s}">
-        ${s}
-        <span class="subj-count">${_subjectAnswered(s)}/${subjectMap[s].length}</span>
-      </button>`).join('');
+
+    if (legacyContainer) {
+      legacyContainer.innerHTML = subjects.map(s => `
+        <button class="subj-tab ${s === activeSubject ? 'active' : ''}"
+                onclick="ExamEngine.switchSubject('${s}')" data-subj="${s}">
+          ${s}
+          <span class="subj-count">${_subjectAnswered(s)}/${subjectMap[s].length}</span>
+        </button>`).join('');
+    }
+
+    if (listContainer) {
+      listContainer.innerHTML = subjects.map(s => `
+        <li class="subject-item ${s === activeSubject ? 'is-active' : ''}" data-subj="${s}" role="option" tabindex="0">
+          <span>${s}</span>
+          <span class="subj-badge">${_subjectAnswered(s)}/${subjectMap[s].length}</span>
+        </li>`).join('');
+      listContainer.querySelectorAll('.subject-item').forEach(li => {
+        li.addEventListener('click', () => switchSubject(li.dataset.subj));
+        li.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); switchSubject(li.dataset.subj); }
+        });
+      });
+    }
   }
 
   function switchSubject(subjectName) {
@@ -180,6 +203,8 @@ const ExamEngine = (() => {
     currentIdx = 0;
     document.querySelectorAll('.subj-tab').forEach(b =>
       b.classList.toggle('active', b.dataset.subj === subjectName));
+    document.querySelectorAll('#subjectList .subject-item').forEach(li =>
+      li.classList.toggle('is-active', li.dataset.subj === subjectName));
     renderQuestion(0);
     updatePalette();
   }
@@ -207,43 +232,64 @@ const ExamEngine = (() => {
 
     // Global index for header
     const globalIdx = allQuestions.findIndex(x => x.id === q.id);
-    document.getElementById('qBadge').textContent = `Q ${globalIdx + 1}`;
-    document.getElementById('qMeta').textContent  = [q.subject, q.topic].filter(Boolean).join(' → ');
-    document.getElementById('ehQCount').textContent = `${globalIdx + 1}/${allQuestions.length}`;
+    _setEl('qBadge', `Q ${globalIdx + 1}`);
+    _setEl('qMeta', [q.subject, q.topic].filter(Boolean).join(' → '));
+    _setEl('ehQCount', `${globalIdx + 1}/${allQuestions.length}`);
+    _setEl('questionCounter', `Question ${globalIdx + 1} of ${allQuestions.length}`);
     const subjChip = document.getElementById('ehSubject');
     if (subjChip) subjChip.textContent = (q.subject || activeSubject || '—').toUpperCase();
+    _setEl('activeSubjectChip', q.subject || activeSubject || '—');
 
     // Difficulty
     const diff = document.getElementById('qDiff');
     if (diff) diff.textContent = { easy:'🟢 Easy', medium:'🟡 Medium', hard:'🔴 Hard' }[q.difficulty] || '';
 
     // Question text
-    document.getElementById('qText').textContent = q.text || '';
+    _setEl('qText', q.text || '');
+    _setEl('questionText', q.text || '');
 
     // Question image
     const imgWrap = document.getElementById('qImgWrap');
     const imgEl   = document.getElementById('qImg');
-    if (q.imageUrl) { imgEl.src = q.imageUrl; imgWrap.style.display = 'block'; }
-    else imgWrap.style.display = 'none';
+    if (imgWrap && imgEl) {
+      if (q.imageUrl) { imgEl.src = q.imageUrl; imgWrap.style.display = 'block'; }
+      else imgWrap.style.display = 'none';
+    }
 
     // Options
     const opts = q.shuffledOptions || q.options || {};
     const list = document.getElementById('optionsList');
-    list.innerHTML = '';
-    Object.entries(opts).forEach(([letter, text]) => {
-      const div = document.createElement('div');
-      div.className = 'option-item' + (answers[q.id] === letter ? ' selected' : '');
-      div.innerHTML = `<span class="opt-letter">${letter}:</span><span class="opt-text">${text}</span>`;
-      div.onclick = () => selectAnswer(q.id, letter);
-      list.appendChild(div);
-    });
+    if (list) {
+      list.innerHTML = '';
+      Object.entries(opts).forEach(([letter, text]) => {
+        const isSelected = answers[q.id] === letter;
+        const div = document.createElement('div');
+        div.className = 'option' + (isSelected ? ' is-selected' : '');
+        div.setAttribute('role', 'radio');
+        div.setAttribute('aria-checked', String(isSelected));
+        div.innerHTML = `
+          <span class="option-radio"></span>
+          <span class="option-letter">${letter}.</span>
+          <span class="option-text">${text}</span>`;
+        div.onclick = () => selectAnswer(q.id, letter);
+        list.appendChild(div);
+      });
+    }
 
     // Flag
     const flagBtn = document.getElementById('flagBtn');
-    if (flagBtn) flagBtn.classList.toggle('flagged', flags.has(q.id));
+    const isFlagged = flags.has(q.id);
+    if (flagBtn) flagBtn.classList.toggle('flagged', isFlagged);
+    if (flagBtn) flagBtn.classList.toggle('is-flagged', isFlagged);
+    _setEl('flagBtnText', isFlagged ? 'Unflag' : 'Flag');
 
-    document.getElementById('prevBtn').disabled = idx === 0;
-    document.getElementById('nextBtn').disabled = idx === questions.length - 1;
+    const subjects = Object.keys(subjectMap);
+    const isFirstSubject = subjects.indexOf(activeSubject) === 0;
+    const isLastSubject  = subjects.indexOf(activeSubject) === subjects.length - 1;
+    const prevBtnEl = document.getElementById('prevBtn');
+    const nextBtnEl = document.getElementById('nextBtn');
+    if (prevBtnEl) prevBtnEl.disabled = idx === 0 && isFirstSubject;
+    if (nextBtnEl) nextBtnEl.disabled = idx === questions.length - 1 && isLastSubject;
 
     updateProgress();
     _buildSubjectTabs(); // refresh answered counts
@@ -253,6 +299,18 @@ const ExamEngine = (() => {
   async function selectAnswer(qId, letter) {
     if (!isActive) return;
     answers[qId] = letter;
+    localStorage.setItem('examAnswers_' + exam.id, JSON.stringify(answers));
+    ExamSync.updateAnswers(answers);
+    renderQuestion(currentIdx);
+    updatePalette();
+    updateProgress();
+  }
+
+  function clearAnswer() {
+    if (!isActive) return;
+    const qs = subjectMap[activeSubject] || [];
+    const q  = qs[currentIdx]; if (!q) return;
+    answers[q.id] = null;
     localStorage.setItem('examAnswers_' + exam.id, JSON.stringify(answers));
     ExamSync.updateAnswers(answers);
     renderQuestion(currentIdx);
@@ -314,40 +372,56 @@ const ExamEngine = (() => {
   function updatePalette() {
     const sidebarTarget = document.getElementById('questionPalette');
     const rowTarget     = document.getElementById('questionRow');
-    if (!sidebarTarget && !rowTarget) return;
+    const gridTarget    = document.getElementById('paletteGrid');
 
     let answered = 0, flaggedCount = 0;
-    const html = allQuestions.map((q, idx) => {
+    const buildHtml = (cls, currentTest) => allQuestions.map((q, idx) => {
       const isAnswered = !!answers[q.id];
       const isFlagged  = flags.has(q.id);
-      const isCurrent  = (q === (subjectMap[activeSubject] || [])[currentIdx]);
+      const isCurrent  = currentTest(q, idx);
       if (isAnswered) answered++;
       if (isFlagged)  flaggedCount++;
-      const cls = ['pal-btn',
-        isAnswered ? 'answered' : '',
-        isFlagged  ? 'flagged'  : '',
-        isCurrent  ? 'current'  : '',
+      const stateClasses = [
+        isCurrent  ? 'current is-current'   : '',
+        isFlagged  ? 'flagged is-flagged'   : (isAnswered ? 'answered is-answered' : ''),
       ].filter(Boolean).join(' ');
-      return `<button type="button" class="${cls}" data-idx="${idx}" title="Q${idx+1}">${idx+1}</button>`;
+      return `<button type="button" class="${cls} ${stateClasses}" data-idx="${idx}" title="Q${idx+1}">${idx+1}</button>`;
     }).join('');
 
-    if (sidebarTarget) {
-      sidebarTarget.innerHTML = html;
-      sidebarTarget.querySelectorAll('.pal-btn').forEach(b =>
-        b.onclick = () => jumpTo(parseInt(b.dataset.idx)));
+    const isCurrentFn = q => q === (subjectMap[activeSubject] || [])[currentIdx];
+
+    if (sidebarTarget || rowTarget) {
+      answered = 0; flaggedCount = 0;
+      const html = buildHtml('pal-btn', isCurrentFn);
+      if (sidebarTarget) {
+        sidebarTarget.innerHTML = html;
+        sidebarTarget.querySelectorAll('.pal-btn').forEach(b =>
+          b.onclick = () => jumpTo(parseInt(b.dataset.idx)));
+      }
+      if (rowTarget) {
+        rowTarget.innerHTML = html;
+        rowTarget.querySelectorAll('.pal-btn').forEach(b =>
+          b.onclick = () => jumpTo(parseInt(b.dataset.idx)));
+        rowTarget.querySelector('.pal-btn.current')
+          ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
     }
-    if (rowTarget) {
-      rowTarget.innerHTML = html;
-      rowTarget.querySelectorAll('.pal-btn').forEach(b =>
+
+    if (gridTarget) {
+      answered = 0; flaggedCount = 0;
+      const html = buildHtml('palette-cell', isCurrentFn);
+      gridTarget.innerHTML = html;
+      gridTarget.querySelectorAll('.palette-cell').forEach(b =>
         b.onclick = () => jumpTo(parseInt(b.dataset.idx)));
-      rowTarget.querySelector('.pal-btn.current')
-        ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }
 
     const unanswered = allQuestions.length - answered;
     _setEl('palAnswered',  answered);
     _setEl('palFlagged',   flaggedCount);
     _setEl('palUnanswered',unanswered);
+    _setEl('countAnswered',  answered);
+    _setEl('countFlagged',  flaggedCount);
+    _setEl('countUnanswered', unanswered);
   }
 
   /* ── PROGRESS ────────────────────────────────────────────────────── */
@@ -357,6 +431,8 @@ const ExamEngine = (() => {
     const pct      = total ? Math.round((answered / total) * 100) : 0;
     const bar      = document.getElementById('progressBar');
     if (bar) { bar.style.width = pct + '%'; bar.textContent = pct + '%'; }
+    const fill = document.getElementById('progressBarFill');
+    if (fill) fill.style.width = pct + '%';
     _setEl('answeredCount', answered);
   }
 
@@ -365,15 +441,25 @@ const ExamEngine = (() => {
     if (!isActive) return;
     const answered   = Object.values(answers).filter(Boolean).length;
     const unanswered = allQuestions.length - answered;
+    const flaggedCount = flags.size;
     _setEl('smAnswered',   answered);
     _setEl('smUnanswered', unanswered);
     _setEl('smTotal',      allQuestions.length);
+    _setEl('modalAnsweredCount', answered);
+    _setEl('modalTotalCount',    allQuestions.length);
+    const summaryEl = document.getElementById('modalSummary');
+    if (summaryEl) summaryEl.innerHTML = `
+      <div><strong>${answered}</strong><span>Answered</span></div>
+      <div><strong>${unanswered}</strong><span>Unanswered</span></div>
+      <div><strong>${flaggedCount}</strong><span>Flagged</span></div>`;
     const modal = document.getElementById('submitModal');
-    if (modal) modal.classList.add('active');
+    if (modal) { modal.classList.add('active'); modal.classList.add('is-visible'); }
   }
 
   function closeSubmitModal() {
-    document.getElementById('submitModal')?.classList.remove('active');
+    const modal = document.getElementById('submitModal');
+    modal?.classList.remove('active');
+    modal?.classList.remove('is-visible');
   }
 
   async function confirmSubmit() {
@@ -444,9 +530,16 @@ const ExamEngine = (() => {
         localStorage.removeItem(k + exam.id));
       localStorage.removeItem('currentExamId');
 
+      const answeredCount = Object.values(answers).filter(Boolean).length;
+      _setEl('resultAnswered',   answeredCount);
+      _setEl('resultUnanswered', allQuestions.length - answeredCount);
+      _setEl('resultFlagged',    flags.size);
+      _setEl('resultTimeUsed',   _fmtHMS(timeTaken));
+      _setEl('resultCandidateName', document.getElementById('candName')?.textContent || '');
+
       // Show success modal + redirect
-      const modal = document.getElementById('successModal');
-      if (modal) modal.classList.add('active');
+      const modal = document.getElementById('successModal') || document.getElementById('resultModal');
+      if (modal) { modal.classList.add('active'); modal.classList.add('is-visible'); }
       let t = 5;
       const el = document.getElementById('succTimer');
       const iv = setInterval(() => {
@@ -526,6 +619,13 @@ const ExamEngine = (() => {
   }
 
   /* ── HELPERS ─────────────────────────────────────────────────────── */
+  function _fmtHMS(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = Math.floor(totalSeconds % 60);
+    return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+  }
+
   function _shuffle(arr) {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
@@ -591,7 +691,7 @@ const ExamEngine = (() => {
 
   return {
     init, enforceFullscreen,
-    prev, next, jumpTo, toggleFlag,
+    prev, next, jumpTo, toggleFlag, clearAnswer,
     switchSubject,
     renderQuestion, updatePalette, updateProgress,
     requestSubmit, closeSubmitModal, confirmSubmit,

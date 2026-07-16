@@ -176,6 +176,7 @@ async function main() {
   await idx(DB_ID, 'exams', 'idx_active',    'key', ['active'],    ['ASC']);
   await idx(DB_ID, 'exams', 'idx_subjectId', 'key', ['subjectId'], ['ASC']);
   await idx(DB_ID, 'exams', 'idx_status',    'key', ['status'],    ['ASC']);
+  await idx(DB_ID, 'exams', 'idx_examName',  'fulltext', ['name'], ['ASC']);
 
   // QUESTIONS
   console.log('\n❓ Creating collection: questions');

@@ -7,6 +7,9 @@ const CentreManager = (() => {
   let editingId      = null;
   let allCentres     = [];
   let candidateCounts= {};
+  let currentList    = [];
+  let currentPage    = 0;
+  const PAGE_SIZE     = 20;
 
   async function load() {
     const tbody = document.getElementById('centresBody');
@@ -23,10 +26,42 @@ const CentreManager = (() => {
         const cid = d.centreId;
         if (cid) candidateCounts[cid] = (candidateCounts[cid] || 0) + 1;
       });
-      renderTable(allCentres);
+      currentPage = 0;
+      _setList(allCentres);
     } catch(e) {
       tbody.innerHTML = `<tr><td colspan="7" style="color:#dc3545">${e.message}</td></tr>`;
     }
+  }
+
+  function _setList(list) {
+    currentList = list;
+    currentPage = 0;
+    _renderPage();
+  }
+
+  function _renderPage() {
+    const start = currentPage * PAGE_SIZE;
+    renderTable(currentList.slice(start, start + PAGE_SIZE));
+    _renderPagination();
+  }
+
+  function _renderPagination() {
+    const wrap = document.getElementById('centresPagination'); if(!wrap) return;
+    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+    wrap.innerHTML = `
+      <div class="pagination-info">Showing ${currentList.length ? Math.min(currentList.length,(currentPage+1)*PAGE_SIZE) : 0} of ${currentList.length} centres</div>
+      <div class="pagination-btns">
+        <button class="btn-outline-sm" onclick="CentreManager.goToPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Prev</button>
+        <span>Page ${currentPage+1} / ${totalPages}</span>
+        <button class="btn-outline-sm" onclick="CentreManager.goToPage(${currentPage+1})" ${currentPage>=totalPages-1?'disabled':''}>Next →</button>
+      </div>`;
+  }
+
+  function goToPage(p) {
+    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+    if (p < 0 || p > totalPages-1) return;
+    currentPage = p;
+    _renderPage();
   }
 
   function renderTable(centres) {
@@ -55,13 +90,13 @@ const CentreManager = (() => {
     }).join('');
   }
 
-  function filter(q) { renderTable(allCentres.filter(c =>
+  function filter(q) { _setList(allCentres.filter(c =>
     c.name?.toLowerCase().includes(q.toLowerCase()) ||
     c.code?.toLowerCase().includes(q.toLowerCase()) ||
     c.state?.toLowerCase().includes(q.toLowerCase()))); }
 
   function filterStatus(s) {
-    renderTable(s==='all' ? allCentres : allCentres.filter(c => c.status===s));
+    _setList(s==='all' ? allCentres : allCentres.filter(c => c.status===s));
   }
 
   function showAdd() {
@@ -145,7 +180,7 @@ const CentreManager = (() => {
     if (form) form.addEventListener('submit', save);
   });
 
-  return { load, filter, filterStatus, showAdd, showEdit, save, toggleStatus };
+  return { load, filter, filterStatus, showAdd, showEdit, save, toggleStatus, goToPage };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -248,6 +283,9 @@ const ExamManager = (() => {
   'use strict';
   let editingId  = null;
   let allExams   = [];
+  let currentList = [];
+  let currentPage = 0;
+  const PAGE_SIZE  = 20;
 
   async function load() {
     await _loadExams();
@@ -260,8 +298,39 @@ const ExamManager = (() => {
     try {
       const res = await DB.list(SD.COL.EXAMS, [SD.Q.orderDesc('$createdAt')], 200);
       allExams = res.documents.map(d => ({ id: d.$id, ...d }));
-      renderTable(allExams);
+      _setList(allExams);
     } catch(e) { tbody.innerHTML = `<tr><td colspan="8" style="color:#dc3545">${e.message}</td></tr>`; }
+  }
+
+  function _setList(list) {
+    currentList = list;
+    currentPage = 0;
+    _renderPage();
+  }
+
+  function _renderPage() {
+    const start = currentPage * PAGE_SIZE;
+    renderTable(currentList.slice(start, start + PAGE_SIZE));
+    _renderPagination();
+  }
+
+  function _renderPagination() {
+    const wrap = document.getElementById('examsPagination'); if(!wrap) return;
+    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+    wrap.innerHTML = `
+      <div class="pagination-info">Showing ${currentList.length ? Math.min(currentList.length,(currentPage+1)*PAGE_SIZE) : 0} of ${currentList.length} exams</div>
+      <div class="pagination-btns">
+        <button class="btn-outline-sm" onclick="ExamManager.goToPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Prev</button>
+        <span>Page ${currentPage+1} / ${totalPages}</span>
+        <button class="btn-outline-sm" onclick="ExamManager.goToPage(${currentPage+1})" ${currentPage>=totalPages-1?'disabled':''}>Next →</button>
+      </div>`;
+  }
+
+  function goToPage(p) {
+    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+    if (p < 0 || p > totalPages-1) return;
+    currentPage = p;
+    _renderPage();
   }
 
   function renderTable(exams) {
@@ -301,11 +370,23 @@ const ExamManager = (() => {
   function switchTab(tab, btn) {
     document.querySelectorAll('.etab').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
-    if (tab==='all')      { renderTable(allExams); return; }
+    if (tab==='all')      { _showAllView(); return; }
     if (tab==='schedule') { _showScheduleView(); return; }
     if (tab==='assign')   { _showAssignView(); return; }
     if (tab==='activate') { _showActivateView(); return; }
     if (tab==='monitor')  { _showMonitorView(); return; }
+  }
+
+  function _showAllView() {
+    document.getElementById('examTabContent').innerHTML = `
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Exam Name</th><th>Subject</th><th>Duration</th><th>Questions</th><th>Scheduled</th><th>Status</th><th>Candidates</th><th>Actions</th></tr></thead>
+          <tbody id="examsBody"></tbody>
+        </table>
+      </div>
+      <div id="examsPagination" class="pagination-wrap"></div>`;
+    _setList(allExams);
   }
 
   function _showActivateView() {
@@ -546,7 +627,7 @@ const ExamManager = (() => {
   });
 
   return { load, switchTab, showCreate, showEdit, save, activate, deactivate, delete: deleteExam,
-    saveSchedule, showAssign, _selectAll, _clearAll, _filterAssign, _saveAssign, viewMonitor };
+    saveSchedule, showAssign, _selectAll, _clearAll, _filterAssign, _saveAssign, viewMonitor, goToPage };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -557,6 +638,9 @@ const UserManager = (() => {
   'use strict';
   let editingId = null;
   let allUsers  = [];
+  let currentList = [];
+  let currentPage = 0;
+  const PAGE_SIZE  = 20;
 
   async function load() {
     const tbody = document.getElementById('usersBody'); if(!tbody) return;
@@ -564,9 +648,40 @@ const UserManager = (() => {
     try {
       const res = await DB.list(SD.COL.USERS, [SD.Q.orderAsc('fullName')], 500);
       allUsers = res.documents.map(d => ({ id: d.$id, ...d }));
-      renderTable(allUsers);
+      _setList(allUsers);
       _wireRoleTabs();
     } catch(e) { tbody.innerHTML = `<tr><td colspan="7">${e.message}</td></tr>`; }
+  }
+
+  function _setList(list) {
+    currentList = list;
+    currentPage = 0;
+    _renderPage();
+  }
+
+  function _renderPage() {
+    const start = currentPage * PAGE_SIZE;
+    renderTable(currentList.slice(start, start + PAGE_SIZE));
+    _renderPagination();
+  }
+
+  function _renderPagination() {
+    const wrap = document.getElementById('usersPagination'); if(!wrap) return;
+    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+    wrap.innerHTML = `
+      <div class="pagination-info">Showing ${currentList.length ? Math.min(currentList.length,(currentPage+1)*PAGE_SIZE) : 0} of ${currentList.length} users</div>
+      <div class="pagination-btns">
+        <button class="btn-outline-sm" onclick="UserManager.goToPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Prev</button>
+        <span>Page ${currentPage+1} / ${totalPages}</span>
+        <button class="btn-outline-sm" onclick="UserManager.goToPage(${currentPage+1})" ${currentPage>=totalPages-1?'disabled':''}>Next →</button>
+      </div>`;
+  }
+
+  function goToPage(p) {
+    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+    if (p < 0 || p > totalPages-1) return;
+    currentPage = p;
+    _renderPage();
   }
 
   function renderTable(users) {
@@ -594,7 +709,7 @@ const UserManager = (() => {
         document.querySelectorAll('.rtab').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
         const role = btn.dataset.role;
-        renderTable(role==='all' ? allUsers : allUsers.filter(u=>u.role===role));
+        _setList(role==='all' ? allUsers : allUsers.filter(u=>u.role===role));
       });
     });
   }
@@ -685,7 +800,7 @@ const UserManager = (() => {
     if (form) form.addEventListener('submit', save);
   });
 
-  return { load, showAdd, showEdit, save, toggleStatus };
+  return { load, showAdd, showEdit, save, toggleStatus, goToPage };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -695,6 +810,9 @@ const ResultManager = (() => {
   'use strict';
   let allResults  = [];
   let examsLoaded = false;
+  let currentList = [];
+  let currentPage = 0;
+  const PAGE_SIZE  = 20;
 
   async function load() {
     const tbody = document.getElementById('resultsBody'); if(!tbody) return;
@@ -706,8 +824,39 @@ const ResultManager = (() => {
       if (examFilter) queries.push(SD.Q.equal('examId', examFilter));
       const res = await SD.databases.listDocuments(SD.DB_ID, SD.COL.RESULTS, queries);
       allResults = res.documents.map(d => ({ id: d.$id, ...d }));
-      _renderTable(allResults);
+      _setList(allResults);
     } catch(e) { tbody.innerHTML = `<tr><td colspan="7" style="color:#dc3545">${e.message}</td></tr>`; }
+  }
+
+  function _setList(list) {
+    currentList = list;
+    currentPage = 0;
+    _renderPage();
+  }
+
+  function _renderPage() {
+    const start = currentPage * PAGE_SIZE;
+    _renderTable(currentList.slice(start, start + PAGE_SIZE));
+    _renderPagination();
+  }
+
+  function _renderPagination() {
+    const wrap = document.getElementById('resultsPagination'); if(!wrap) return;
+    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+    wrap.innerHTML = `
+      <div class="pagination-info">Showing ${currentList.length ? Math.min(currentList.length,(currentPage+1)*PAGE_SIZE) : 0} of ${currentList.length} results</div>
+      <div class="pagination-btns">
+        <button class="btn-outline-sm" onclick="ResultManager.goToPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Prev</button>
+        <span>Page ${currentPage+1} / ${totalPages}</span>
+        <button class="btn-outline-sm" onclick="ResultManager.goToPage(${currentPage+1})" ${currentPage>=totalPages-1?'disabled':''}>Next →</button>
+      </div>`;
+  }
+
+  function goToPage(p) {
+    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+    if (p < 0 || p > totalPages-1) return;
+    currentPage = p;
+    _renderPage();
   }
 
   async function _loadExamFilter() {
@@ -740,14 +889,14 @@ const ResultManager = (() => {
   }
 
   function search(q) {
-    _renderTable(allResults.filter(r =>
+    _setList(allResults.filter(r =>
       (r.candidateName||'').toLowerCase().includes(q.toLowerCase()) ||
       (r.candidateId||'').toLowerCase().includes(q.toLowerCase())));
   }
 
   function filterStatus(s) {
-    if (s==='all') { _renderTable(allResults); return; }
-    _renderTable(allResults.filter(r => (s==='passed')===!!r.passed));
+    if (s==='all') { _setList(allResults); return; }
+    _setList(allResults.filter(r => (s==='passed')===!!r.passed));
   }
 
   async function viewDetail(resultId) {
@@ -807,7 +956,7 @@ const ResultManager = (() => {
 
   function _esc(s){ const d=document.createElement('div');d.textContent=s??'';return d.innerHTML; }
 
-  return { load, search, filterStatus, viewDetail, exportResults };
+  return { load, search, filterStatus, viewDetail, exportResults, goToPage };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════

@@ -272,3 +272,12 @@ h3{font-size:clamp(1rem,2vw,1.2rem)}
   .filter-row{flex-direction:column;align-items:stretch}
   .filter-row select,.filter-row input{width:100%}
 }
+@media(max-width:400px){
+  .dash-charts-row,.dash-recent-row,.settings-grid,.ai-grid,.notif-channels,
+  .activate-grid,.assign-grid,.monitor-grid,.exam-cards-grid,.portal-cards,
+  .admin-stats-grid,.stats-row{
+    grid-template-columns:1fr!important;
+  }
+  .admin-mod{padding:14px!important}
+  .global-search{width:100%!important;max-width:140px}
+}
