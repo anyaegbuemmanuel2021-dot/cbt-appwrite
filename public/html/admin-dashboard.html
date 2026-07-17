@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Console – SOFTLY DIGITAL V3</title>
-  <link rel="stylesheet" href="../css/main.css">
-  <link rel="stylesheet" href="../css/admin.css">
+  <link rel="stylesheet" href="../css/main.css?v=2">
+  <link rel="stylesheet" href="../css/admin.css?v=2">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -236,6 +236,7 @@
         <button class="btn-primary-sm" onclick="SubjectManager.showAdd()">+ Add Subject</button>
       </div>
       <div id="subjectsTree"><div class="loading-placeholder">Loading subjects…</div></div>
+      <div id="subjectsPagination" class="pagination-wrap"></div>
     </div>
 
     <!-- ── RESULTS ────────────────────────────────────────────────────── -->
@@ -686,14 +687,14 @@
   <script src="../js/icons.js"></script>
   <script src="../js/rbac.js"></script>
   <script src="../js/auth.js"></script>
-  <script src="../js/managers.js"></script>
+  <script src="../js/managers.js?v=3"></script>
   <script src="../js/candidate-manager.js"></script>
   <script src="../js/question-manager.js"></script>
   <script src="../js/ai-module.js"></script>
   <script src="../js/analytics-manager.js"></script>
   <script src="../js/notification-manager.js"></script>
   <script src="../js/audit-manager.js"></script>
-  <script src="../js/admin-dashboard.js"></script>
+  <script src="../js/admin-dashboard.js?v=2"></script>
   <script>
     // Image preview for candidate photo upload
     document.addEventListener('DOMContentLoaded', () => {

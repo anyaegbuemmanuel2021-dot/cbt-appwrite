@@ -188,6 +188,10 @@ const CentreManager = (() => {
  * ════════════════════════════════════════════════════════════════════*/
 const SubjectManager = (() => {
   'use strict';
+  let allSubjects = [];
+  let allTopics   = [];
+  let currentPage = 0;
+  const PAGE_SIZE  = 10;
 
   async function load() {
     const tree = document.getElementById('subjectsTree'); if(!tree) return;
@@ -197,32 +201,61 @@ const SubjectManager = (() => {
         DB.list(SD.COL.SUBJECTS, [SD.Q.orderAsc('name')], 200),
         DB.list(SD.COL.TOPICS,   [SD.Q.orderAsc('name')], 1000),
       ]);
-      const subjects = subjRes.documents;
-      const topics   = topicRes.documents;
-
-      tree.innerHTML = subjects.map(s => {
-        const subTopics = topics.filter(t => t.subjectId === s.$id);
-        return `<div class="subj-tree-node">
-          <div class="subj-node-header">
-            <span class="subj-icon">📚</span>
-            <strong>${_esc(s.name)}</strong>
-            <span class="subj-meta">(${subTopics.length} topics)</span>
-            <div class="subj-actions">
-              <button class="btn-outline-sm" onclick="SubjectManager.editSubject('${s.$id}','${_esc(s.name)}')">✏️</button>
-              <button class="btn-primary-sm" onclick="SubjectManager.addTopic('${s.$id}','${_esc(s.name)}')">+ Topic</button>
-              <button class="btn-danger btn-xs" onclick="SubjectManager.deleteSubject('${s.$id}')">🗑️</button>
-            </div>
-          </div>
-          <div class="topic-list">
-            ${subTopics.map(t => `<div class="topic-node">
-              <span class="topic-icon">📖</span> ${_esc(t.name)}
-              <button class="btn-outline-sm btn-xs" onclick="SubjectManager.editTopic('${t.$id}','${_esc(t.name)}')">✏️</button>
-              <button class="btn-danger btn-xs" onclick="SubjectManager.deleteTopic('${t.$id}')">🗑️</button>
-            </div>`).join('') || '<p class="no-topics">No topics yet.</p>'}
-          </div>
-        </div>`;
-      }).join('') || '<p class="no-data">No subjects yet. Add one above.</p>';
+      allSubjects = subjRes.documents;
+      allTopics   = topicRes.documents;
+      currentPage = 0;
+      _renderPage();
     } catch(e) { tree.innerHTML = `<p style="color:#dc3545">${e.message}</p>`; }
+  }
+
+  function _renderPage() {
+    const tree = document.getElementById('subjectsTree'); if(!tree) return;
+    const start = currentPage * PAGE_SIZE;
+    const pageSubjects = allSubjects.slice(start, start + PAGE_SIZE);
+
+    tree.innerHTML = pageSubjects.map(s => {
+      const subTopics = allTopics.filter(t => t.subjectId === s.$id);
+      return `<div class="subj-tree-node">
+        <div class="subj-node-header">
+          <span class="subj-icon">📚</span>
+          <strong>${_esc(s.name)}</strong>
+          <span class="subj-meta">(${subTopics.length} topics)</span>
+          <div class="subj-actions">
+            <button class="btn-outline-sm" onclick="SubjectManager.editSubject('${s.$id}','${_esc(s.name)}')">✏️</button>
+            <button class="btn-primary-sm" onclick="SubjectManager.addTopic('${s.$id}','${_esc(s.name)}')">+ Topic</button>
+            <button class="btn-danger btn-xs" onclick="SubjectManager.deleteSubject('${s.$id}')">🗑️</button>
+          </div>
+        </div>
+        <div class="topic-list">
+          ${subTopics.map(t => `<div class="topic-node">
+            <span class="topic-icon">📖</span> ${_esc(t.name)}
+            <button class="btn-outline-sm btn-xs" onclick="SubjectManager.editTopic('${t.$id}','${_esc(t.name)}')">✏️</button>
+            <button class="btn-danger btn-xs" onclick="SubjectManager.deleteTopic('${t.$id}')">🗑️</button>
+          </div>`).join('') || '<p class="no-topics">No topics yet.</p>'}
+        </div>
+      </div>`;
+    }).join('') || '<p class="no-data">No subjects yet. Add one above.</p>';
+
+    _renderPagination();
+  }
+
+  function _renderPagination() {
+    const wrap = document.getElementById('subjectsPagination'); if(!wrap) return;
+    const totalPages = Math.max(1, Math.ceil(allSubjects.length / PAGE_SIZE));
+    wrap.innerHTML = `
+      <div class="pagination-info">Showing ${allSubjects.length ? Math.min(allSubjects.length,(currentPage+1)*PAGE_SIZE) : 0} of ${allSubjects.length} subjects</div>
+      <div class="pagination-btns">
+        <button class="btn-outline-sm" onclick="SubjectManager.goToPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Prev</button>
+        <span>Page ${currentPage+1} / ${totalPages}</span>
+        <button class="btn-outline-sm" onclick="SubjectManager.goToPage(${currentPage+1})" ${currentPage>=totalPages-1?'disabled':''}>Next →</button>
+      </div>`;
+  }
+
+  function goToPage(p) {
+    const totalPages = Math.max(1, Math.ceil(allSubjects.length / PAGE_SIZE));
+    if (p < 0 || p > totalPages-1) return;
+    currentPage = p;
+    _renderPage();
   }
 
   async function showAdd() {
@@ -272,7 +305,7 @@ const SubjectManager = (() => {
 
   function _esc(s){ return String(s||'').replace(/'/g,"\\'").replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 
-  return { load, showAdd, editSubject, deleteSubject, addTopic, editTopic, deleteTopic };
+  return { load, showAdd, editSubject, deleteSubject, addTopic, editTopic, deleteTopic, goToPage };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════
