@@ -1,128 +1,109 @@
 /**
  * SOFTLY DIGITAL V3 — exam-engine.js (Appwrite edition)
- * JAMB-style: multiple subjects per exam, subject tabs, question palette,
- * timer, anti-cheat, auto-submit, Appwrite backend.
+ * Backend logic (Appwrite data, timer, anti-cheat, sync, grading) wired to
+ * the "Examina CBT" front-end design (sidebar subject list, timer ring,
+ * single question palette, dark mode, mobile sidebar).
  */
 const ExamEngine = (() => {
   'use strict';
 
-  let exam         = null;
-  let allQuestions = [];          // flat array of all questions
-  let subjectMap   = {};          // subjectName -> [questions]
-  let activeSubject= null;        // current subject tab
-  let answers      = {};
-  let flags        = new Set();
-  let currentIdx   = 0;           // index within activeSubject questions
-  let sessionId    = null;
-  let isSubmitting = false;
-  let isActive     = false;
+  let exam          = null;
+  let allQuestions  = [];          // flat array of all questions (every subject)
+  let subjectMap    = {};          // subjectName -> [questions]
+  let activeSubject = null;        // current subject key
+  let answers       = {};
+  let flags         = new Set();
+  let currentIdx    = 0;           // index within activeSubject's question list
+  let sessionId     = null;
+  let isSubmitting  = false;
+  let isActive      = false;
+  let candidateName = 'Candidate';
+  let paletteFilter = 'all';
 
   /* ── INIT ────────────────────────────────────────────────────────── */
   async function init() {
     const user = await AUTH.current();
     if (!user) { location.href = 'candidate-login.html'; return; }
 
-    // Populate header: candidate photo + name
+    // Populate sidebar: candidate photo, name, reg no.
     try {
       const candDoc = await DB.get(SD.COL.CANDIDATES, user.$id);
-      const nameEl  = document.getElementById('candName');
-      const photoEl = document.getElementById('candPhoto');
-      if (nameEl)  nameEl.textContent = candDoc.fullName || user.name || 'Candidate';
+      candidateName = candDoc.fullName || user.name || 'Candidate';
+      _setEl('candidateName', candidateName);
+      _setEl('candidateReg', candDoc.candidateId || candDoc.regNo || '—');
+      const photoEl = document.getElementById('candidatePhoto');
       if (photoEl && candDoc.passportImageUrl) photoEl.src = candDoc.passportImageUrl;
-      _setEl('candidateReg', candDoc.candidateId || '—');
     } catch (_) {
-      const nameEl = document.getElementById('candName');
-      if (nameEl) nameEl.textContent = user.name || 'Candidate';
+      candidateName = user.name || 'Candidate';
+      _setEl('candidateName', candidateName);
     }
 
-    const params = new URLSearchParams(location.search);
-    const examId = params.get('examId') || localStorage.getItem('currentExamId');
-    if (!examId) { _setStep('ls1','❌ No exam ID provided'); return; }
+    const params  = new URLSearchParams(location.search);
+    const examId  = params.get('examId') || localStorage.getItem('currentExamId');
+    if (!examId) { _loadError('No exam ID provided. Please return to your dashboard.'); return; }
 
     try {
       /* ── Step 1: Load exam ── */
-      _setStep('ls1', '✅ Exam data loaded');
+      _setLoading('Loading exam data…');
       const examDoc = await DB.get(SD.COL.EXAMS, examId);
       exam = { id: examDoc.$id, ...examDoc };
-      _setEl('ehTitle', exam.name);
-
-      // subjectIds may be stored as a JSON string rather than a real array
-      // (same root cause as the options-parsing bug) — normalize it here.
-      if (typeof exam.subjectIds === 'string') {
-        try { exam.subjectIds = JSON.parse(exam.subjectIds); } catch (_) { exam.subjectIds = []; }
-      }
-      if (!Array.isArray(exam.subjectIds)) exam.subjectIds = exam.subjectIds ? [exam.subjectIds] : [];
+      exam.subjectIds = _parseJsonArray(exam.subjectIds);
+      _setEl('examNameDisplay', exam.name);
+      _setEl('topbarTitle', exam.name);
+      _setEl('examDurationDisplay', (exam.duration || 60) + ' minutes');
+      document.title = exam.name + ' — SOFTLY DIGITAL V3';
 
       /* ── Step 2: Load questions by subject (JAMB style) ── */
-      _setStep('ls2', '⏳ Loading questions…');
-      // Questions linked to exam by examId field OR by subjectId if exam has subjectIds[]
+      _setLoading('Loading questions by subject…');
       let qRes;
       if (exam.subjectIds && exam.subjectIds.length) {
-        // Multi-subject exam — fetch per subject in parallel
         const perSubject = await Promise.all(
           exam.subjectIds.map(sid =>
-            DB.list(SD.COL.QUESTIONS, [SD.Q.equal('subjectId', sid)], exam.totalQuestions || 200)
-          )
+            DB.list(SD.COL.QUESTIONS, [SD.Q.equal('subjectId', sid)], exam.totalQuestions || 200))
         );
-        const all = perSubject.flatMap(r => r.documents);
-        qRes = { documents: all };
+        qRes = { documents: perSubject.flatMap(r => r.documents) };
       } else {
         qRes = await DB.list(SD.COL.QUESTIONS, [SD.Q.equal('examId', examId)], exam.totalQuestions || 200);
-        if (!qRes.documents.length) {
-          // Fallback: fetch by subjectId
-          if (exam.subjectId) {
-            qRes = await DB.list(SD.COL.QUESTIONS, [SD.Q.equal('subjectId', exam.subjectId)], exam.totalQuestions || 200);
-          }
+        if (!qRes.documents.length && exam.subjectId) {
+          qRes = await DB.list(SD.COL.QUESTIONS, [SD.Q.equal('subjectId', exam.subjectId)], exam.totalQuestions || 200);
         }
       }
-
       if (!qRes.documents.length) throw new Error('No questions found for this exam.');
 
       allQuestions = qRes.documents.map(d => ({ id: d.$id, ...d, options: _normalizeOptions(d) }));
 
-      // Randomise if enabled
+      _setLoading('Randomising & shuffling options…');
       if (exam.randomizeQuestions !== false) allQuestions = _shuffle(allQuestions);
-
-      // Limit to totalQuestions
       if (exam.totalQuestions && allQuestions.length > exam.totalQuestions) {
         allQuestions = allQuestions.slice(0, exam.totalQuestions);
       }
-
-      // Shuffle options
       if (exam.shuffleOptions !== false) {
         allQuestions = allQuestions.map(q => ({ ...q, shuffledOptions: _shuffleOptions(q.options) }));
       }
 
-      // Build subject map (JAMB tabs)
       subjectMap = {};
       allQuestions.forEach(q => {
         const subj = q.subject || q.subjectName || 'General';
-        if (!subjectMap[subj]) subjectMap[subj] = [];
-        subjectMap[subj].push(q);
+        (subjectMap[subj] = subjectMap[subj] || []).push(q);
       });
-      _setStep('ls2', '✅ Questions loaded & randomised');
 
       /* ── Step 3: Restore saved answers ── */
-      _setStep('ls3', '✅ Options shuffled');
       const saved = localStorage.getItem('examAnswers_' + examId);
-      if (saved) try { answers = JSON.parse(saved); } catch(_) {}
+      if (saved) try { answers = JSON.parse(saved); } catch (_) {}
       allQuestions.forEach(q => { if (answers[q.id] === undefined) answers[q.id] = null; });
 
       /* ── Step 4: Create or resume session ── */
+      _setLoading('Starting your session…');
       const existingSession = localStorage.getItem('examSession_' + examId);
       if (existingSession) {
         sessionId = existingSession;
         try {
           const ses = await DB.get(SD.COL.SESSIONS, sessionId);
-          if (ses.answers) {
-            const remote = JSON.parse(ses.answers);
-            answers = { ...answers, ...remote };
-          }
-        } catch(_) {}
+          if (ses.answers) answers = { ...answers, ...JSON.parse(ses.answers) };
+        } catch (_) {}
       } else {
         const ses = await DB.create(SD.COL.SESSIONS, {
-          candidateId: user.$id,
-          examId,
+          candidateId: user.$id, examId,
           duration:    exam.duration || 60,
           startTime:   new Date().toISOString(),
           status:      'active',
@@ -135,104 +116,62 @@ const ExamEngine = (() => {
       }
 
       /* ── Step 5: Security config + AntiCheat ── */
-      _setStep('ls4', '✅ Security monitoring started');
+      _setLoading('Starting security monitor…');
       await _loadSecurityConfig();
       if (window.AntiCheat) AntiCheat.init({ sessionId, examId, candidateId: user.$id });
 
-      /* ── Step 6: Start timer ── */
+      /* ── Step 6: Timer ── */
       const savedTime = localStorage.getItem('examTimeLeft_' + examId);
-      const timeLeft  = savedTime ? parseInt(savedTime) : exam.duration * 60;
+      const timeLeft  = savedTime ? parseInt(savedTime) : (exam.duration || 60) * 60;
       ExamTimer.start(timeLeft, examId, () => autoSubmit('timeout'));
 
       isActive = true;
-      // NOTE: fullscreen is NOT requested here — browsers block requestFullscreen()
-      // unless it's triggered directly by a user click. See beginExam() below,
-      // which the "Begin Exam" button calls.
-
-      /* ── Start sync loop ── */
+      await enforceFullscreen();
       ExamSync.start(examId, sessionId, answers);
 
-      /* ── Build subject tabs (JAMB style) ── */
-      _buildSubjectTabs();
-
-      /* ── Hide loading, show exam ── */
-      _setEl('totalQCount', allQuestions.length);
-      _setEl('ehQCount', `1/${allQuestions.length}`);
-
-      // Show first subject
       activeSubject = Object.keys(subjectMap)[0];
+      _renderSubjectList();
       renderQuestion(0);
       updatePalette();
+      updateProgress();
 
-      // Show a "Begin Exam" button instead of auto-hiding the loading screen —
-      // fullscreen can only be requested as a direct result of a user click.
-      const stepsEl = document.querySelector('.load-steps');
-      if (stepsEl) {
-        stepsEl.innerHTML += `
-          <button id="beginExamBtn" class="nav-btn nav-btn-primary" style="margin-top:14px;width:100%;justify-content:center">
-            Begin Exam
-          </button>`;
-        document.getElementById('beginExamBtn')?.addEventListener('click', beginExam, { once: true });
-      } else {
-        beginExam(); // no loading-screen steps element available — just proceed
-      }
+      /* ── Reveal app, hide loading screen ── */
+      document.getElementById('loadingScreen')?.classList.add('is-hidden');
+      const app = document.getElementById('app');
+      if (app) { app.classList.add('is-ready'); app.setAttribute('aria-hidden', 'false'); }
 
-    } catch(err) {
+    } catch (err) {
       console.error('ExamEngine init error:', err);
-      const stepsEl = document.querySelector('.load-steps');
-      if (stepsEl) stepsEl.innerHTML =
-        `<div style="color:#dc3545;padding:12px">❌ ${err.message}<br><small>Please contact your invigilator.</small></div>`;
-      else alert('Failed to load exam: ' + err.message);
+      _loadError(err.message + ' — please contact your invigilator.');
     }
   }
 
-  /** Called directly by the "Begin Exam" button click — this is the one place
-   *  allowed to request fullscreen, since it runs as a direct result of a
-   *  user gesture (browsers block requestFullscreen() otherwise). */
-  async function beginExam() {
-    await enforceFullscreen();
-    document.getElementById('loadingScreen')?.classList.add('is-hidden');
-    document.getElementById('app')?.classList.add('is-ready');
-    document.getElementById('app')?.setAttribute('aria-hidden', 'false');
+  function _setLoading(msg) { _setEl('loadingText', msg); }
+  function _loadError(msg) {
+    const el = document.getElementById('loadingText');
+    if (el) { el.textContent = '❌ ' + msg; el.style.color = '#F5A6AE'; }
+    document.querySelector('.loading-ring')?.style.setProperty('display', 'none');
   }
 
-  /* ── SUBJECT TABS (JAMB structure) ─────────────────────────────── */
-  function _buildSubjectTabs() {
-    const legacyContainer = document.getElementById('subjectTabs');
-    const listContainer   = document.getElementById('subjectList');
+  /* ── SUBJECT LIST (sidebar) ─────────────────────────────────────── */
+  function _renderSubjectList() {
+    const list = document.getElementById('subjectList');
+    if (!list) return;
     const subjects = Object.keys(subjectMap);
-
-    if (legacyContainer) {
-      legacyContainer.innerHTML = subjects.map(s => `
-        <button class="subj-tab ${s === activeSubject ? 'active' : ''}"
-                onclick="ExamEngine.switchSubject('${s}')" data-subj="${s}">
-          ${s}
-          <span class="subj-count">${_subjectAnswered(s)}/${subjectMap[s].length}</span>
-        </button>`).join('');
-    }
-
-    if (listContainer) {
-      listContainer.innerHTML = subjects.map(s => `
-        <li class="subject-item ${s === activeSubject ? 'is-active' : ''}" data-subj="${s}" role="option" tabindex="0">
-          <span>${s}</span>
-          <span class="subj-badge">${_subjectAnswered(s)}/${subjectMap[s].length}</span>
-        </li>`).join('');
-      listContainer.querySelectorAll('.subject-item').forEach(li => {
-        li.addEventListener('click', () => switchSubject(li.dataset.subj));
-        li.addEventListener('keydown', e => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); switchSubject(li.dataset.subj); }
-        });
-      });
-    }
+    list.innerHTML = subjects.map(s => `
+      <li class="subject-item ${s === activeSubject ? 'is-active' : ''}" role="option" tabindex="0"
+          onclick="ExamEngine.switchSubject('${_escAttr(s)}')"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ExamEngine.switchSubject('${_escAttr(s)}')}">
+        <span>${_esc(s)}</span>
+        <span class="subj-badge">${_subjectAnswered(s)}/${subjectMap[s].length}</span>
+      </li>`).join('');
   }
 
   function switchSubject(subjectName) {
+    if (subjectName === activeSubject) return;
     activeSubject = subjectName;
     currentIdx = 0;
-    document.querySelectorAll('.subj-tab').forEach(b =>
-      b.classList.toggle('active', b.dataset.subj === subjectName));
-    document.querySelectorAll('#subjectList .subject-item').forEach(li =>
-      li.classList.toggle('is-active', li.dataset.subj === subjectName));
+    _renderSubjectList();
     renderQuestion(0);
     updatePalette();
   }
@@ -241,42 +180,26 @@ const ExamEngine = (() => {
     return (subjectMap[subj] || []).filter(q => answers[q.id]).length;
   }
 
-  /* ── FULLSCREEN ──────────────────────────────────────────────────── */
+  /* ── FULLSCREEN ─────────────────────────────────────────────────── */
   async function enforceFullscreen() {
     try {
       const el = document.documentElement;
       if (el.requestFullscreen) await el.requestFullscreen();
       else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-    } catch(_) {}
+    } catch (_) {}
   }
 
-  /* ── RENDER QUESTION ─────────────────────────────────────────────── */
+  /* ── RENDER QUESTION ────────────────────────────────────────────── */
   function renderQuestion(idx) {
     const questions = subjectMap[activeSubject] || [];
-    if (!questions.length) return;
-    if (idx < 0 || idx >= questions.length) return;
+    if (!questions.length || idx < 0 || idx >= questions.length) return;
     currentIdx = idx;
     const q = questions[idx];
 
-    // Global index for header
-    const globalIdx = allQuestions.findIndex(x => x.id === q.id);
-    _setEl('qBadge', `Q ${globalIdx + 1}`);
-    _setEl('qMeta', [q.subject, q.topic].filter(Boolean).join(' → '));
-    _setEl('ehQCount', `${globalIdx + 1}/${allQuestions.length}`);
-    _setEl('questionCounter', `Question ${globalIdx + 1} of ${allQuestions.length}`);
-    const subjChip = document.getElementById('ehSubject');
-    if (subjChip) subjChip.textContent = (q.subject || activeSubject || '—').toUpperCase();
-    _setEl('activeSubjectChip', q.subject || activeSubject || '—');
-
-    // Difficulty
-    const diff = document.getElementById('qDiff');
-    if (diff) diff.textContent = { easy:'🟢 Easy', medium:'🟡 Medium', hard:'🔴 Hard' }[q.difficulty] || '';
-
-    // Question text
-    _setEl('qText', q.text || '');
+    _setEl('activeSubjectChip', (q.subject || activeSubject || '—').toUpperCase());
+    _setEl('questionCounter', `Question ${idx + 1} of ${questions.length}`);
     _setEl('questionText', q.text || '');
 
-    // Question image
     const imgWrap = document.getElementById('qImgWrap');
     const imgEl   = document.getElementById('qImg');
     if (imgWrap && imgEl) {
@@ -284,61 +207,52 @@ const ExamEngine = (() => {
       else imgWrap.style.display = 'none';
     }
 
-    // Options
-    let opts = q.shuffledOptions || q.options || {};
-    if (typeof opts === 'string') {
-      try { opts = JSON.parse(opts); } catch (_) { opts = {}; }
-    }
-    if (Array.isArray(opts) || typeof opts !== 'object' || opts === null) {
-      console.warn('ExamEngine: unexpected options shape for question', q.id, opts);
-      opts = {};
-    }
+    const opts = q.shuffledOptions || q.options || {};
     const list = document.getElementById('optionsList');
     if (list) {
       list.innerHTML = '';
       Object.entries(opts).forEach(([letter, text]) => {
         const isSelected = answers[q.id] === letter;
-        const div = document.createElement('div');
-        div.className = 'option' + (isSelected ? ' is-selected' : '');
-        div.setAttribute('role', 'radio');
-        div.setAttribute('aria-checked', String(isSelected));
-        div.innerHTML = `
+        const row = document.createElement('div');
+        row.className = 'option' + (isSelected ? ' is-selected' : '');
+        row.setAttribute('role', 'radio');
+        row.setAttribute('aria-checked', String(isSelected));
+        row.setAttribute('tabindex', '0');
+        row.innerHTML = `
           <span class="option-radio"></span>
           <span class="option-letter">${letter}.</span>
           <span class="option-text">${text}</span>`;
-        div.onclick = () => selectAnswer(q.id, letter);
-        list.appendChild(div);
+        row.onclick = () => selectAnswer(q.id, letter);
+        row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectAnswer(q.id, letter); } });
+        list.appendChild(row);
       });
     }
 
-    // Flag
     const flagBtn = document.getElementById('flagBtn');
+    const flagTxt = document.getElementById('flagBtnText');
     const isFlagged = flags.has(q.id);
-    if (flagBtn) flagBtn.classList.toggle('flagged', isFlagged);
     if (flagBtn) flagBtn.classList.toggle('is-flagged', isFlagged);
-    _setEl('flagBtnText', isFlagged ? 'Unflag' : 'Flag');
+    if (flagTxt) flagTxt.textContent = isFlagged ? 'Unflag' : 'Flag';
 
-    const subjects = Object.keys(subjectMap);
-    const isFirstSubject = subjects.indexOf(activeSubject) === 0;
-    const isLastSubject  = subjects.indexOf(activeSubject) === subjects.length - 1;
-    const prevBtnEl = document.getElementById('prevBtn');
-    const nextBtnEl = document.getElementById('nextBtn');
-    if (prevBtnEl) prevBtnEl.disabled = idx === 0 && isFirstSubject;
-    if (nextBtnEl) nextBtnEl.disabled = idx === questions.length - 1 && isLastSubject;
+    // Prev/Next are only disabled at the true first/last question across all subjects.
+    const globalIdx = allQuestions.findIndex(x => x.id === q.id);
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    if (prevBtn) prevBtn.disabled = globalIdx === 0;
+    if (nextBtn) nextBtn.disabled = globalIdx === allQuestions.length - 1;
 
+    updatePalette();
     updateProgress();
-    _buildSubjectTabs(); // refresh answered counts
+    _renderSubjectList();
   }
 
-  /* ── SELECT ANSWER ───────────────────────────────────────────────── */
+  /* ── ANSWER ACTIONS ─────────────────────────────────────────────── */
   async function selectAnswer(qId, letter) {
     if (!isActive) return;
     answers[qId] = letter;
     localStorage.setItem('examAnswers_' + exam.id, JSON.stringify(answers));
     ExamSync.updateAnswers(answers);
     renderQuestion(currentIdx);
-    updatePalette();
-    updateProgress();
   }
 
   function clearAnswer() {
@@ -349,50 +263,40 @@ const ExamEngine = (() => {
     localStorage.setItem('examAnswers_' + exam.id, JSON.stringify(answers));
     ExamSync.updateAnswers(answers);
     renderQuestion(currentIdx);
-    updatePalette();
-    updateProgress();
   }
 
   function prev() {
-    const qs = subjectMap[activeSubject] || [];
-    if (currentIdx > 0) renderQuestion(currentIdx - 1);
-    else {
-      // Jump to previous subject
-      const subjects = Object.keys(subjectMap);
-      const si = subjects.indexOf(activeSubject);
-      if (si > 0) {
-        activeSubject = subjects[si - 1];
-        renderQuestion((subjectMap[activeSubject] || []).length - 1);
-        _buildSubjectTabs();
-      }
+    if (currentIdx > 0) { renderQuestion(currentIdx - 1); return; }
+    const subjects = Object.keys(subjectMap);
+    const si = subjects.indexOf(activeSubject);
+    if (si > 0) {
+      activeSubject = subjects[si - 1];
+      renderQuestion((subjectMap[activeSubject] || []).length - 1);
     }
   }
 
   function next() {
     const qs = subjectMap[activeSubject] || [];
-    if (currentIdx < qs.length - 1) renderQuestion(currentIdx + 1);
-    else {
-      // Jump to next subject
-      const subjects = Object.keys(subjectMap);
-      const si = subjects.indexOf(activeSubject);
-      if (si < subjects.length - 1) {
-        activeSubject = subjects[si + 1];
-        renderQuestion(0);
-        _buildSubjectTabs();
-      }
+    if (currentIdx < qs.length - 1) { renderQuestion(currentIdx + 1); return; }
+    const subjects = Object.keys(subjectMap);
+    const si = subjects.indexOf(activeSubject);
+    if (si < subjects.length - 1) {
+      activeSubject = subjects[si + 1];
+      renderQuestion(0);
+    } else {
+      requestSubmit();
     }
   }
 
+  function skip() { next(); }
+
   function jumpTo(globalIdx) {
-    const q = allQuestions[globalIdx];
-    if (!q) return;
+    const q = allQuestions[globalIdx]; if (!q) return;
     const subj = q.subject || q.subjectName || 'General';
-    if (subjectMap[subj]) {
-      activeSubject = subj;
-      const localIdx = subjectMap[subj].findIndex(x => x.id === q.id);
-      _buildSubjectTabs();
-      renderQuestion(localIdx >= 0 ? localIdx : 0);
-    }
+    if (!subjectMap[subj]) return;
+    activeSubject = subj;
+    const localIdx = subjectMap[subj].findIndex(x => x.id === q.id);
+    renderQuestion(localIdx >= 0 ? localIdx : 0);
   }
 
   function toggleFlag() {
@@ -400,128 +304,86 @@ const ExamEngine = (() => {
     const q  = qs[currentIdx]; if (!q) return;
     flags.has(q.id) ? flags.delete(q.id) : flags.add(q.id);
     renderQuestion(currentIdx);
-    updatePalette();
   }
 
-  /* ── PALETTE ─────────────────────────────────────────────────────── */
+  function setPaletteFilter(f) { paletteFilter = f; updatePalette(); }
+
+  /* ── PALETTE (current subject) ──────────────────────────────────── */
   function updatePalette() {
-    const sidebarTarget = document.getElementById('questionPalette');
-    const rowTarget     = document.getElementById('questionRow');
-    const gridTarget    = document.getElementById('paletteGrid');
-
-    let answered = 0, flaggedCount = 0;
-    const buildHtml = (cls, currentTest) => allQuestions.map((q, idx) => {
-      const isAnswered = !!answers[q.id];
-      const isFlagged  = flags.has(q.id);
-      const isCurrent  = currentTest(q, idx);
-      if (isAnswered) answered++;
-      if (isFlagged)  flaggedCount++;
-      const stateClasses = [
-        isCurrent  ? 'current is-current'   : '',
-        isFlagged  ? 'flagged is-flagged'   : (isAnswered ? 'answered is-answered' : ''),
-      ].filter(Boolean).join(' ');
-      return `<button type="button" class="${cls} ${stateClasses}" data-idx="${idx}" title="Q${idx+1}">${idx+1}</button>`;
-    }).join('');
-
-    const isCurrentFn = q => q === (subjectMap[activeSubject] || [])[currentIdx];
-
-    if (sidebarTarget || rowTarget) {
-      answered = 0; flaggedCount = 0;
-      const html = buildHtml('pal-btn', isCurrentFn);
-      if (sidebarTarget) {
-        sidebarTarget.innerHTML = html;
-        sidebarTarget.querySelectorAll('.pal-btn').forEach(b =>
-          b.onclick = () => jumpTo(parseInt(b.dataset.idx)));
-      }
-      if (rowTarget) {
-        rowTarget.innerHTML = html;
-        rowTarget.querySelectorAll('.pal-btn').forEach(b =>
-          b.onclick = () => jumpTo(parseInt(b.dataset.idx)));
-        rowTarget.querySelector('.pal-btn.current')
-          ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-      }
+    const grid = document.getElementById('paletteGrid');
+    const questions = subjectMap[activeSubject] || [];
+    if (grid) {
+      grid.innerHTML = questions.map((q, idx) => {
+        const isAnswered = !!answers[q.id];
+        const isFlagged  = flags.has(q.id);
+        const isCurrent  = idx === currentIdx;
+        let cls = 'palette-cell';
+        if (isCurrent) cls += ' is-current';
+        else if (isFlagged) cls += ' is-flagged';
+        else if (isAnswered) cls += ' is-answered';
+        let visible = true;
+        if (paletteFilter === 'answered')   visible = isAnswered;
+        if (paletteFilter === 'unanswered') visible = !isAnswered;
+        if (paletteFilter === 'flagged')    visible = isFlagged;
+        if (!visible) cls += ' is-filtered-out';
+        return `<button type="button" class="${cls}" title="Q${idx + 1}" onclick="ExamEngine.renderQuestion(${idx})">${idx + 1}</button>`;
+      }).join('');
     }
-
-    if (gridTarget) {
-      answered = 0; flaggedCount = 0;
-      const html = buildHtml('palette-cell', isCurrentFn);
-      gridTarget.innerHTML = html;
-      gridTarget.querySelectorAll('.palette-cell').forEach(b =>
-        b.onclick = () => jumpTo(parseInt(b.dataset.idx)));
-    }
-
-    const unanswered = allQuestions.length - answered;
-    _setEl('palAnswered',  answered);
-    _setEl('palFlagged',   flaggedCount);
-    _setEl('palUnanswered',unanswered);
-    _setEl('countAnswered',  answered);
-    _setEl('countFlagged',  flaggedCount);
-    _setEl('countUnanswered', unanswered);
   }
 
-  /* ── PROGRESS ────────────────────────────────────────────────────── */
+  /* ── PROGRESS (global, across all subjects) ─────────────────────── */
   function updateProgress() {
-    const answered = Object.values(answers).filter(Boolean).length;
-    const total    = allQuestions.length;
-    const pct      = total ? Math.round((answered / total) * 100) : 0;
-    const bar      = document.getElementById('progressBar');
-    if (bar) { bar.style.width = pct + '%'; bar.textContent = pct + '%'; }
-    const fill = document.getElementById('progressBarFill');
-    if (fill) fill.style.width = pct + '%';
-    _setEl('answeredCount', answered);
+    const answered   = Object.values(answers).filter(Boolean).length;
+    const total      = allQuestions.length;
+    const flagged    = flags.size;
+    const unanswered = total - answered;
+    const pct        = total ? Math.round((answered / total) * 100) : 0;
+
+    _setEl('countAnswered',   answered);
+    _setEl('countUnanswered', unanswered);
+    _setEl('countFlagged',    flagged);
+    const bar = document.getElementById('progressBarFill');
+    if (bar) bar.style.width = pct + '%';
   }
 
   /* ── SUBMIT ──────────────────────────────────────────────────────── */
   function requestSubmit() {
     if (!isActive) return;
     const answered   = Object.values(answers).filter(Boolean).length;
-    const unanswered = allQuestions.length - answered;
-    const flaggedCount = flags.size;
-    _setEl('smAnswered',   answered);
-    _setEl('smUnanswered', unanswered);
-    _setEl('smTotal',      allQuestions.length);
+    const flagged    = flags.size;
+    const total      = allQuestions.length;
+    const unanswered = total - answered;
     _setEl('modalAnsweredCount', answered);
-    _setEl('modalTotalCount',    allQuestions.length);
-    const summaryEl = document.getElementById('modalSummary');
-    if (summaryEl) summaryEl.innerHTML = `
+    _setEl('modalTotalCount', total);
+    const summary = document.getElementById('modalSummary');
+    if (summary) summary.innerHTML = `
       <div><strong>${answered}</strong><span>Answered</span></div>
       <div><strong>${unanswered}</strong><span>Unanswered</span></div>
-      <div><strong>${flaggedCount}</strong><span>Flagged</span></div>`;
-    const modal = document.getElementById('submitModal');
-    if (modal) { modal.classList.add('active'); modal.classList.add('is-visible'); }
+      <div><strong>${flagged}</strong><span>Flagged</span></div>`;
+    document.getElementById('submitModal')?.classList.add('is-visible');
   }
 
-  function closeSubmitModal() {
-    const modal = document.getElementById('submitModal');
-    modal?.classList.remove('active');
-    modal?.classList.remove('is-visible');
-  }
+  function closeSubmitModal() { document.getElementById('submitModal')?.classList.remove('is-visible'); }
 
-  async function confirmSubmit() {
-    closeSubmitModal();
-    await _doSubmit('manual');
-  }
+  async function confirmSubmit() { closeSubmitModal(); await _doSubmit('manual'); }
 
   async function autoSubmit(reason) {
     isActive = false;
     if (window.AntiCheat) AntiCheat.stop();
     ExamTimer.stop();
     const msgs = {
-      violations:          'Your exam was auto-submitted due to repeated security violations.',
-      timeout:             'Time is up — your exam has been automatically submitted.',
-      bot_detected:        'Automated activity detected. Exam submitted for review.',
-      multiple_login:      'Exam opened in another tab/device. This session submitted.',
-      session_idle_timeout:'Auto-submitted due to extended inactivity.',
+      violations:           'Your exam was auto-submitted due to repeated security violations.',
+      timeout:              'Time is up — your exam has been automatically submitted.',
+      bot_detected:         'Automated activity detected. Exam submitted for review.',
+      multiple_login:       'Exam opened in another tab/device. This session submitted.',
+      session_idle_timeout: 'Auto-submitted due to extended inactivity.',
     };
     if (reason !== 'timeout') {
-      const modal = document.getElementById('autoSubmitModal');
-      const msgEl = document.getElementById('autoSubmitMsg');
-      if (msgEl) msgEl.textContent = msgs[reason] || 'Your exam was automatically submitted.';
-      if (modal) modal.classList.add('active');
+      _setEl('autoSubmitMsg', msgs[reason] || 'Your exam was automatically submitted.');
+      document.getElementById('autoSubmitModal')?.classList.add('is-visible');
       let t = 5;
-      const el = document.getElementById('asTimer');
       const iv = setInterval(() => {
-        t--; if(el) el.textContent = t;
+        t--; _setEl('asTimer', t);
         if (t <= 0) { clearInterval(iv); _doSubmit('auto_' + reason); }
       }, 1000);
     } else {
@@ -537,9 +399,8 @@ const ExamEngine = (() => {
 
     try {
       const user      = await AUTH.current();
-      const timeTaken = exam.duration * 60 - ExamTimer.getRemaining();
+      const timeTaken = (exam.duration || 60) * 60 - ExamTimer.getRemaining();
 
-      // Save submission
       const sub = await DB.create(SD.COL.SUBMISSIONS, {
         candidateId:  user.$id,
         examId:       exam.id,
@@ -551,201 +412,136 @@ const ExamEngine = (() => {
         submitReason: reason,
       });
 
-      // Update session
-      await DB.update(SD.COL.SESSIONS, sessionId, {
-        status:      'submitted',
-        submittedAt: new Date().toISOString(),
-      });
+      await DB.update(SD.COL.SESSIONS, sessionId, { status: 'submitted', submittedAt: new Date().toISOString() });
 
-      // Grade exam client-side (server Appwrite Functions can also do this)
       const result = await _gradeExam(sub.$id);
 
-      // Clear local storage
-      ['examAnswers_','examTimeLeft_','examSession_'].forEach(k =>
-        localStorage.removeItem(k + exam.id));
+      ['examAnswers_', 'examTimeLeft_', 'examSession_'].forEach(k => localStorage.removeItem(k + exam.id));
       localStorage.removeItem('currentExamId');
 
-      const answeredCount = Object.values(answers).filter(Boolean).length;
-      _setEl('resultAnswered',   answeredCount);
-      _setEl('resultUnanswered', allQuestions.length - answeredCount);
-      _setEl('resultFlagged',    flags.size);
-      _setEl('resultTimeUsed',   _fmtHMS(timeTaken));
-      _setEl('resultCandidateName', document.getElementById('candName')?.textContent || '');
+      const answered   = Object.values(answers).filter(Boolean).length;
+      const total      = allQuestions.length;
+      _setEl('resultCandidateName', candidateName);
+      _setEl('resultAnswered', answered);
+      _setEl('resultUnanswered', total - answered);
+      _setEl('resultFlagged', flags.size);
+      _setEl('resultTimeUsed', _fmtTime(timeTaken));
 
-      // Show success modal + redirect
-      const modal = document.getElementById('successModal') || document.getElementById('resultModal');
-      if (modal) { modal.classList.add('active'); modal.classList.add('is-visible'); }
+      document.getElementById('autoSubmitModal')?.classList.remove('is-visible');
+      document.getElementById('resultModal')?.classList.add('is-visible');
+
       let t = 5;
-      const el = document.getElementById('succTimer');
       const iv = setInterval(() => {
-        t--; if(el) el.textContent = t;
+        t--; _setEl('succTimer', t);
         if (t <= 0) { clearInterval(iv); location.href = `results.html?resultId=${result.id}`; }
       }, 1000);
+      document.getElementById('printResultBtn')?.addEventListener('click', () => window.print());
 
-    } catch(err) {
+    } catch (err) {
       console.error('Submit error:', err);
       isSubmitting = false; isActive = true;
       alert('Submission failed: ' + err.message + '\n\nYour answers are saved locally. Please contact your invigilator.');
     }
   }
 
-  /* ── GRADE EXAM (client-side with Appwrite) ──────────────────────── */
+  /* ── GRADE EXAM ──────────────────────────────────────────────────── */
   async function _gradeExam(submissionId) {
     let correct = 0;
     const breakdown = {};
-
     allQuestions.forEach(q => {
       const studentAns = answers[q.id] || 'NOT_ANSWERED';
       const isCorrect  = studentAns === q.correctAnswer;
       if (isCorrect) correct++;
-      breakdown[q.id] = {
-        questionText:   q.text,
-        studentAnswer:  studentAns,
-        correctAnswer:  q.correctAnswer,
-        isCorrect,
-        subject:        q.subject || '',
-      };
+      breakdown[q.id] = { questionText: q.text, studentAnswer: studentAns, correctAnswer: q.correctAnswer, isCorrect, subject: q.subject || '' };
     });
 
     const total      = allQuestions.length;
     const percentage = total ? Math.round((correct / total) * 100) : 0;
     const passing    = SD.CFG.PASS_THRESHOLD || 70;
     const passed     = percentage >= passing;
-    const grade      = percentage >= 90 ? 'A' : percentage >= 80 ? 'B' :
-                       percentage >= 70 ? 'C' : percentage >= 60 ? 'D' : 'F';
+    const grade      = percentage >= 90 ? 'A' : percentage >= 80 ? 'B' : percentage >= 70 ? 'C' : percentage >= 60 ? 'D' : 'F';
 
     const user = await AUTH.current();
-    let candidateName = '';
-    try {
-      const cand = await DB.get(SD.COL.CANDIDATES, user.$id);
-      candidateName = cand.fullName || '';
-    } catch(_) {}
 
     const resultDoc = await DB.create(SD.COL.RESULTS, {
-      candidateId:     user.$id,
-      candidateName,
-      examId:          exam.id,
-      examName:        exam.name,
-      submissionId,
-      correctAnswers:  correct,
-      totalQuestions:  total,
-      percentage,
-      grade,
-      passed,
+      candidateId: user.$id, candidateName,
+      examId: exam.id, examName: exam.name, submissionId,
+      correctAnswers: correct, totalQuestions: total, percentage, grade, passed,
       answerBreakdown: JSON.stringify(breakdown),
-      createdAt:       new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     });
-
     return resultDoc;
   }
 
-  /* ── SECURITY CONFIG (from Appwrite DB settings) ─────────────────── */
+  /* ── SECURITY CONFIG ─────────────────────────────────────────────── */
   async function _loadSecurityConfig() {
     try {
       const cfg = await DB.get(SD.COL.SETTINGS, 'global');
-      if (cfg.passingPercentage != null) SD.CFG.PASS_THRESHOLD    = cfg.passingPercentage;
-      if (cfg.maxViolations     != null) SD.CFG.MAX_VIOLATIONS    = cfg.maxViolations;
-      if (cfg.autoSaveInterval  != null) SD.CFG.AUTO_SAVE_MS      = cfg.autoSaveInterval * 1000;
-      if (cfg.syncInterval      != null) SD.CFG.SYNC_MS           = cfg.syncInterval * 1000;
-      SD.CFG.SESSION_TIMEOUT_MIN = cfg.sessionTimeout    ?? 60;
+      if (cfg.passingPercentage != null) SD.CFG.PASS_THRESHOLD = cfg.passingPercentage;
+      if (cfg.maxViolations     != null) SD.CFG.MAX_VIOLATIONS = cfg.maxViolations;
+      if (cfg.autoSaveInterval  != null) SD.CFG.AUTO_SAVE_MS   = cfg.autoSaveInterval * 1000;
+      if (cfg.syncInterval      != null) SD.CFG.SYNC_MS        = cfg.syncInterval * 1000;
+      SD.CFG.SESSION_TIMEOUT_MIN = cfg.sessionTimeout     ?? 60;
       SD.CFG.SINGLE_SESSION      = cfg.singleActiveSession ?? true;
-      SD.CFG.BOT_DETECTION       = cfg.botDetection       ?? true;
-    } catch(_) {}
+      SD.CFG.BOT_DETECTION       = cfg.botDetection        ?? true;
+    } catch (_) {}
   }
 
   /* ── HELPERS ─────────────────────────────────────────────────────── */
-  function _fmtHMS(totalSeconds) {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = Math.floor(totalSeconds % 60);
-    return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+  function _parseJsonArray(val) {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string' && val.trim()) {
+      try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : []; }
+      catch (_) { return []; }
+    }
+    return [];
   }
-
   function _shuffle(arr) {
     const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
     return a;
   }
-
   function _shuffleOptions(options) {
     if (!options || typeof options !== 'object') return options;
     const entries = _shuffle(Object.entries(options));
-    const letters = ['A','B','C','D','E'];
-    const result  = {};
+    const letters = ['A', 'B', 'C', 'D', 'E'];
+    const result = {};
     entries.forEach(([, val], i) => { result[letters[i]] = val; });
     return result;
   }
-
-  /** Normalize a question document's options into a plain {A:text, B:text, ...} object.
-   *  Handles: options stored as JSON string (including accidentally double-encoded),
-   *  options already an object, options as an array of strings or {label/text}-style
-   *  objects, or falls back to individual optionA/optionB/optionC/optionD fields.
-   *  Never returns a raw string — that would make Object.entries() iterate its
-   *  individual characters instead of real options. */
   function _normalizeOptions(d) {
-    const letters = ['A','B','C','D','E','F'];
     let opts = d.options;
-
-    // Parse up to twice, in case the value was accidentally double-JSON-encoded
-    for (let i = 0; i < 2 && typeof opts === 'string'; i++) {
-      try { opts = JSON.parse(opts); } catch (_) { break; }
-    }
-
-    // Case 1: already a clean {A: 'text', B: 'text', ...} object
-    if (opts && typeof opts === 'object' && !Array.isArray(opts) && Object.keys(opts).length) {
-      const clean = {};
-      Object.entries(opts).forEach(([k, v]) => {
-        if (typeof v === 'string' || typeof v === 'number') clean[k] = String(v);
-        else if (v && typeof v === 'object') clean[k] = String(v.text ?? v.value ?? v.label ?? JSON.stringify(v));
-      });
-      if (Object.keys(clean).length) return clean;
-    }
-
-    // Case 2: an array — either plain strings, or {label/key, text/value} objects
-    if (Array.isArray(opts) && opts.length) {
-      const result = {};
-      opts.forEach((item, i) => {
-        const letter = letters[i] || String(i);
-        if (typeof item === 'string' || typeof item === 'number') result[letter] = String(item);
-        else if (item && typeof item === 'object') {
-          const key = item.label || item.letter || item.key || letter;
-          result[key] = String(item.text ?? item.value ?? item.option ?? '');
-        }
-      });
-      if (Object.keys(result).length) return result;
-    }
-
-    // Case 3: fallback to discrete optionA-F fields
+    if (typeof opts === 'string') { try { opts = JSON.parse(opts); } catch (_) { opts = null; } }
+    if (opts && typeof opts === 'object' && !Array.isArray(opts) && Object.keys(opts).length) return opts;
     const fallback = {};
-    letters.forEach(letter => {
+    ['A', 'B', 'C', 'D', 'E'].forEach(letter => {
       const val = d['option' + letter];
-      if (val !== undefined && val !== null && val !== '') fallback[letter] = String(val);
+      if (val !== undefined && val !== null && val !== '') fallback[letter] = val;
     });
-    if (Object.keys(fallback).length) return fallback;
-
-    console.warn('ExamEngine: could not parse options for question', d.$id, '— raw value:', d.options);
-    return {};
+    return fallback;
   }
+  function _fmtTime(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600), m = Math.floor((totalSeconds % 3600) / 60), s = totalSeconds % 60;
+    const p = n => String(n).padStart(2, '0');
+    return `${p(h)}:${p(m)}:${p(s)}`;
+  }
+  function _setEl(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+  function _esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function _escAttr(s) { return String(s ?? '').replace(/'/g, "\\'"); }
 
-  function _setEl(id, val) { const el = document.getElementById(id); if(el) el.textContent = val; }
-  function _setStep(id, msg) { const el = document.getElementById(id); if(el) el.textContent = msg; }
+  function dismissViolation() { if (window.AntiCheat) AntiCheat.dismiss(); }
 
-  function dismissViolation() { if(window.AntiCheat) AntiCheat.dismiss(); }
-
-  // Keyboard navigation
+  /* ── KEYBOARD SHORTCUTS ──────────────────────────────────────────── */
   document.addEventListener('keydown', e => {
     if (!isActive) return;
+    if (document.querySelector('.modal-overlay.is-visible')) return;
     if (e.key === 'ArrowLeft')  prev();
     if (e.key === 'ArrowRight') next();
-    if (['1','a','A'].includes(e.key)) _clickOption('A');
-    if (['2','b','B'].includes(e.key)) _clickOption('B');
-    if (['3','c','C'].includes(e.key)) _clickOption('C');
-    if (['4','d','D'].includes(e.key)) _clickOption('D');
+    if (['1', 'a', 'A'].includes(e.key)) _clickOption('A');
+    if (['2', 'b', 'B'].includes(e.key)) _clickOption('B');
+    if (['3', 'c', 'C'].includes(e.key)) _clickOption('C');
+    if (['4', 'd', 'D'].includes(e.key)) _clickOption('D');
   });
-
   function _clickOption(letter) {
     const qs = subjectMap[activeSubject] || [];
     const q  = qs[currentIdx]; if (!q) return;
@@ -753,12 +549,94 @@ const ExamEngine = (() => {
     if (opts[letter] !== undefined) selectAnswer(q.id, letter);
   }
 
+  /* ── UI CHROME (dark mode, mobile sidebar, network banner, filters,
+        wire up buttons that used to be inline onclick) ─────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('prevBtn')?.addEventListener('click', prev);
+    document.getElementById('nextBtn')?.addEventListener('click', next);
+    document.getElementById('skipBtn')?.addEventListener('click', skip);
+    document.getElementById('clearBtn')?.addEventListener('click', clearAnswer);
+    document.getElementById('flagBtn')?.addEventListener('click', toggleFlag);
+    document.getElementById('submitBtn')?.addEventListener('click', requestSubmit);
+    document.getElementById('modalReviewBtn')?.addEventListener('click', closeSubmitModal);
+    document.getElementById('modalConfirmBtn')?.addEventListener('click', confirmSubmit);
+
+    document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    });
+
+    document.getElementById('darkModeToggle')?.addEventListener('click', () => {
+      const root = document.documentElement;
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      try { localStorage.setItem('examTheme', isDark ? 'light' : 'dark'); } catch (_) {}
+    });
+    try {
+      const savedTheme = localStorage.getItem('examTheme');
+      if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+    } catch (_) {}
+
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('is-active'));
+        chip.classList.add('is-active');
+        setPaletteFilter(chip.dataset.filter);
+      });
+    });
+
+    // Mobile sidebar
+    const sidebar = document.getElementById('sidebar');
+    const scrim = document.createElement('div');
+    scrim.className = 'sidebar-scrim';
+    document.body.appendChild(scrim);
+    const openSidebar  = () => { sidebar?.classList.add('is-open'); scrim.classList.add('is-visible'); };
+    const closeSidebar = () => { sidebar?.classList.remove('is-open'); scrim.classList.remove('is-visible'); };
+    document.getElementById('mobileMenuBtn')?.addEventListener('click', openSidebar);
+    document.getElementById('sidebarToggle')?.addEventListener('click', closeSidebar);
+    scrim.addEventListener('click', closeSidebar);
+    document.getElementById('mobileTimerBtn')?.addEventListener('click', openSidebar);
+
+    document.getElementById('logoutBtn')?.addEventListener('click', () => {
+      if (!confirm('End this session? Your progress is saved locally and will resume next time you open this exam.')) return;
+      window.onbeforeunload = null;
+      location.href = 'candidate-dashboard.html';
+    });
+
+    // Network status
+    const networkBanner = document.getElementById('networkBanner');
+    const networkStatus = document.getElementById('networkStatus');
+    function updateNetworkStatus() {
+      if (!networkBanner || !networkStatus) return;
+      if (navigator.onLine) {
+        networkBanner.classList.remove('is-visible');
+        networkStatus.innerHTML = '<span class="pulse-dot"></span> Online';
+        networkStatus.className = 'status-badge status-badge-ok';
+      } else {
+        networkBanner.classList.add('is-visible');
+        networkStatus.textContent = 'Offline';
+        networkStatus.className = 'status-badge status-badge-warn';
+      }
+    }
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+    updateNetworkStatus();
+
+    // Warn before leaving mid-exam
+    window.onbeforeunload = () => isActive ? 'Leaving now may affect your exam progress. Are you sure?' : undefined;
+
+    // Integrity: block copy/paste (fullscreen right-click already blocked via body attribute)
+    document.addEventListener('copy',  e => { if (isActive) e.preventDefault(); });
+    document.addEventListener('cut',   e => { if (isActive) e.preventDefault(); });
+    document.addEventListener('paste', e => { if (isActive) e.preventDefault(); });
+  });
+
   document.addEventListener('DOMContentLoaded', init);
 
   return {
     init, enforceFullscreen,
-    prev, next, jumpTo, toggleFlag, clearAnswer,
-    switchSubject,
+    prev, next, skip, jumpTo, toggleFlag, clearAnswer, selectAnswer,
+    switchSubject, setPaletteFilter,
     renderQuestion, updatePalette, updateProgress,
     requestSubmit, closeSubmitModal, confirmSubmit,
     autoSubmit, dismissViolation,
