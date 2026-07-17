@@ -257,7 +257,14 @@ const ExamEngine = (() => {
     }
 
     // Options
-    const opts = q.shuffledOptions || q.options || {};
+    let opts = q.shuffledOptions || q.options || {};
+    if (typeof opts === 'string') {
+      try { opts = JSON.parse(opts); } catch (_) { opts = {}; }
+    }
+    if (Array.isArray(opts) || typeof opts !== 'object' || opts === null) {
+      console.warn('ExamEngine: unexpected options shape for question', q.id, opts);
+      opts = {};
+    }
     const list = document.getElementById('optionsList');
     if (list) {
       list.innerHTML = '';
@@ -645,23 +652,54 @@ const ExamEngine = (() => {
   }
 
   /** Normalize a question document's options into a plain {A:text, B:text, ...} object.
-   *  Handles: options stored as JSON string, options already an object,
-   *  or falls back to individual optionA/optionB/optionC/optionD fields. */
+   *  Handles: options stored as JSON string (including accidentally double-encoded),
+   *  options already an object, options as an array of strings or {label/text}-style
+   *  objects, or falls back to individual optionA/optionB/optionC/optionD fields.
+   *  Never returns a raw string — that would make Object.entries() iterate its
+   *  individual characters instead of real options. */
   function _normalizeOptions(d) {
+    const letters = ['A','B','C','D','E','F'];
     let opts = d.options;
-    if (typeof opts === 'string') {
-      try { opts = JSON.parse(opts); } catch (_) { opts = null; }
+
+    // Parse up to twice, in case the value was accidentally double-JSON-encoded
+    for (let i = 0; i < 2 && typeof opts === 'string'; i++) {
+      try { opts = JSON.parse(opts); } catch (_) { break; }
     }
+
+    // Case 1: already a clean {A: 'text', B: 'text', ...} object
     if (opts && typeof opts === 'object' && !Array.isArray(opts) && Object.keys(opts).length) {
-      return opts;
+      const clean = {};
+      Object.entries(opts).forEach(([k, v]) => {
+        if (typeof v === 'string' || typeof v === 'number') clean[k] = String(v);
+        else if (v && typeof v === 'object') clean[k] = String(v.text ?? v.value ?? v.label ?? JSON.stringify(v));
+      });
+      if (Object.keys(clean).length) return clean;
     }
-    // Fallback to discrete optionA-D fields
+
+    // Case 2: an array — either plain strings, or {label/key, text/value} objects
+    if (Array.isArray(opts) && opts.length) {
+      const result = {};
+      opts.forEach((item, i) => {
+        const letter = letters[i] || String(i);
+        if (typeof item === 'string' || typeof item === 'number') result[letter] = String(item);
+        else if (item && typeof item === 'object') {
+          const key = item.label || item.letter || item.key || letter;
+          result[key] = String(item.text ?? item.value ?? item.option ?? '');
+        }
+      });
+      if (Object.keys(result).length) return result;
+    }
+
+    // Case 3: fallback to discrete optionA-F fields
     const fallback = {};
-    ['A','B','C','D','E'].forEach(letter => {
+    letters.forEach(letter => {
       const val = d['option' + letter];
-      if (val !== undefined && val !== null && val !== '') fallback[letter] = val;
+      if (val !== undefined && val !== null && val !== '') fallback[letter] = String(val);
     });
-    return fallback;
+    if (Object.keys(fallback).length) return fallback;
+
+    console.warn('ExamEngine: could not parse options for question', d.$id, '— raw value:', d.options);
+    return {};
   }
 
   function _setEl(id, val) { const el = document.getElementById(id); if(el) el.textContent = val; }

@@ -91,11 +91,14 @@ const QuestionManager = (() => {
     const q = allQuestions.find(x => x.id === id); if(!q) return;
     document.getElementById('questionModalTitle').textContent = 'Edit Question';
     const form = document.getElementById('questionForm');
+    let opts = q.options;
+    if (typeof opts === 'string') { try { opts = JSON.parse(opts); } catch(_) { opts = null; } }
+    if (!opts || typeof opts !== 'object' || Array.isArray(opts)) opts = {};
     form.text.value          = q.text          || '';
-    form.optionA.value       = q.options?.A || q.optionA || '';
-    form.optionB.value       = q.options?.B || q.optionB || '';
-    form.optionC.value       = q.options?.C || q.optionC || '';
-    form.optionD.value       = q.options?.D || q.optionD || '';
+    form.optionA.value       = opts.A || q.optionA || '';
+    form.optionB.value       = opts.B || q.optionB || '';
+    form.optionC.value       = opts.C || q.optionC || '';
+    form.optionD.value       = opts.D || q.optionD || '';
     form.correctAnswer.value = q.correctAnswer  || 'A';
     form.difficulty.value    = q.difficulty     || 'medium';
     form.explanation.value   = q.explanation    || '';
