@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Examination Portal — SOFTLY DIGITAL V3</title>
+<title>Examination — SOFTLY DIGITAL V3</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/exam-portal.css?v=2">
+<link rel="stylesheet" href="../css/exam.css">
 </head>
 <body class="exam-body" oncontextmenu="return false">
 
@@ -15,12 +15,11 @@
 <div id="loadingScreen" class="loading-screen">
   <div class="loading-inner">
     <div class="loading-ring"></div>
-    <p class="loading-text">Preparing your examination…</p>
-    <div class="load-steps" style="text-align:left;font-size:12.5px;color:#9AA6BC;display:flex;flex-direction:column;gap:6px">
-      <div id="ls1">⏳ Loading exam data</div>
-      <div id="ls2">⏳ Loading questions by subject</div>
-      <div id="ls3">⏳ Randomising &amp; shuffling options</div>
-      <div id="ls4">⏳ Starting security monitor</div>
+    <p class="loading-text" id="loadingText">Initializing secure examination…</p>
+    <div class="skeleton-row">
+      <div class="skeleton skeleton-a"></div>
+      <div class="skeleton skeleton-b"></div>
+      <div class="skeleton skeleton-c"></div>
     </div>
   </div>
 </div>
@@ -28,6 +27,32 @@
 <!-- ===================== NETWORK BANNER ===================== -->
 <div id="networkBanner" class="network-banner" role="status" aria-live="polite">
   <span id="networkBannerText">You're offline. Your answers are saved locally and will sync when you reconnect.</span>
+</div>
+
+<!-- ===================== VIOLATION WARNING MODAL ===================== -->
+<div class="modal-overlay" id="violationModal" role="dialog" aria-modal="true" aria-labelledby="violationTitle">
+  <div class="modal-card">
+    <h2 id="violationTitle">⚠️ Security violation detected</h2>
+    <p class="modal-copy" id="violationMsg">A security violation has been detected.</p>
+    <div class="modal-summary">
+      <div><strong id="vCount">1</strong><span>Violations</span></div>
+      <div><strong>3</strong><span>Max allowed</span></div>
+    </div>
+    <p class="modal-copy">Reaching the maximum will automatically submit your exam.</p>
+    <div class="modal-actions">
+      <button class="nav-btn nav-btn-primary" style="flex:1" onclick="ExamEngine.dismissViolation()">I understand — return to exam</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== AUTO-SUBMIT MODAL ===================== -->
+<div class="modal-overlay" id="autoSubmitModal" role="dialog" aria-modal="true" aria-labelledby="autoSubmitTitle">
+  <div class="modal-card result-card">
+    <div class="result-badge" style="background:var(--danger-soft);color:var(--danger)">🚨</div>
+    <h2 id="autoSubmitTitle">Exam auto-submitted</h2>
+    <p class="modal-copy" id="autoSubmitMsg">Your exam was automatically submitted.</p>
+    <p class="modal-copy">Redirecting in <strong id="asTimer">5</strong>s…</p>
+  </div>
 </div>
 
 <div class="app" id="app" aria-hidden="true">
@@ -46,18 +71,18 @@
 
     <div class="candidate-card">
       <div class="candidate-avatar">
-        <img src="../assets/images/default-avatar.png" alt="Candidate photograph" id="candPhoto">
+        <img src="../assets/images/default-avatar.png" alt="Candidate photograph" id="candidatePhoto">
         <span class="status-dot" title="Verified"></span>
       </div>
       <div class="candidate-meta">
-        <h2 class="candidate-name" id="candName">Candidate</h2>
+        <h2 class="candidate-name" id="candidateName">Candidate</h2>
         <p class="candidate-reg">Reg No. <span id="candidateReg">—</span></p>
       </div>
     </div>
 
     <div class="exam-info">
-      <div class="exam-info-row"><span>Examination</span><strong id="ehTitle">Loading…</strong></div>
-      <div class="exam-info-row"><span>Session</span><strong id="sessionCode">—</strong></div>
+      <div class="exam-info-row"><span>Examination</span><strong id="examNameDisplay">Loading…</strong></div>
+      <div class="exam-info-row"><span>Duration</span><strong id="examDurationDisplay">—</strong></div>
     </div>
 
     <div class="sidebar-section">
@@ -109,7 +134,7 @@
       <button class="icon-btn" id="mobileMenuBtn" aria-label="Open menu">
         <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
       </button>
-      <div class="topbar-title" id="ehSubject">—</div>
+      <div class="topbar-title" id="topbarTitle">Exam</div>
       <button class="icon-btn" id="mobileTimerBtn" aria-label="Show time remaining">
         <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
         <span id="mobileTimerText">00:00:00</span>
@@ -124,13 +149,8 @@
         <section class="question-column" aria-label="Question">
           <div class="question-toolbar">
             <div class="question-position">
-              <span class="subject-chip" id="activeSubjectChip">Subject</span>
-              <h1 id="questionCounter">Question 1 of 1</h1>
-              <!-- Hidden helper fields kept in sync by exam-engine.js for other views (invigilator/monitor) -->
-              <span id="qBadge" style="display:none"></span>
-              <span id="qMeta" style="display:none"></span>
-              <span id="ehQCount" style="display:none"></span>
-              <span id="qDiff" class="subject-chip" style="background:transparent;padding:0;font-weight:600"></span>
+              <span class="subject-chip" id="activeSubjectChip">—</span>
+              <h1 id="questionCounter">Loading question…</h1>
             </div>
             <div class="toolbar-actions">
               <span class="autosave-pill" id="autosavePill">
@@ -144,36 +164,35 @@
           </div>
 
           <div class="question-card" id="questionCard">
-            <p class="question-text" id="questionText">Loading question…</p>
-            <span id="qText" style="display:none"></span>
-            <div class="q-img-wrap" id="qImgWrap" style="display:none;margin:0 0 20px">
-              <img id="qImg" src="" alt="Question illustration" style="max-width:100%;border-radius:12px">
+            <div class="q-img-wrap" id="qImgWrap" style="display:none">
+              <img id="qImg" src="" alt="Question illustration">
             </div>
+            <p class="question-text" id="questionText">Loading question…</p>
             <div class="options-list" id="optionsList" role="radiogroup" aria-label="Answer options"></div>
           </div>
 
           <div class="bottom-nav">
-            <button class="nav-btn nav-btn-secondary" id="prevBtn" onclick="ExamEngine.prev()">
+            <button class="nav-btn nav-btn-secondary" id="prevBtn">
               <svg viewBox="0 0 24 24" width="16" height="16"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Previous
             </button>
-            <button class="nav-btn nav-btn-ghost" id="clearBtn" onclick="ExamEngine.clearAnswer()">
+            <button class="nav-btn nav-btn-ghost" id="clearBtn">
               <svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Clear
             </button>
-            <button class="nav-btn nav-btn-ghost" id="flagBtn" onclick="ExamEngine.toggleFlag()">
+            <button class="nav-btn nav-btn-ghost" id="flagBtn">
               <svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 3v18M5 4h11l-2.5 4L16 12H5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span id="flagBtnText">Flag</span>
             </button>
-            <button class="nav-btn nav-btn-ghost" id="skipBtn" onclick="ExamEngine.next()">
+            <button class="nav-btn nav-btn-ghost" id="skipBtn">
               Skip
               <svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 4l10 8-10 8V4zM19 5v14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            <button class="nav-btn nav-btn-primary" id="nextBtn" onclick="ExamEngine.next()">
+            <button class="nav-btn nav-btn-primary" id="nextBtn">
               Next
               <svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            <button class="nav-btn nav-btn-submit" id="submitBtn" onclick="ExamEngine.requestSubmit()">
+            <button class="nav-btn nav-btn-submit" id="submitBtn">
               <svg viewBox="0 0 24 24" width="16" height="16"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Submit exam
             </button>
@@ -191,8 +210,6 @@
               </svg>
               <div class="timer-digits" id="timerDigits">00:00:00</div>
             </div>
-            <div id="timerDisplay" style="display:none"></div>
-            <div id="elapsedDisplay" style="display:none"></div>
           </div>
 
           <div class="status-card">
@@ -208,11 +225,11 @@
             </div>
             <div class="status-row">
               <span class="status-label">Auto-save</span>
-              <span class="status-badge status-badge-neutral" id="autosaveStatus"><span id="savedStatus">💾 Saved</span></span>
+              <span class="status-badge status-badge-neutral" id="autosaveStatus">Every few seconds</span>
             </div>
             <div class="status-row" id="violChip" style="display:none">
-              <span class="status-label">Security</span>
-              <span class="status-badge status-badge-warn">⚠️ <strong id="ehViolations">0</strong>/3</span>
+              <span class="status-label">Violations</span>
+              <span class="status-badge status-badge-viol"><strong id="ehViolations">0</strong>/3</span>
             </div>
           </div>
 
@@ -231,7 +248,7 @@
       <!-- ===================== QUESTION PALETTE ===================== -->
       <section class="palette-section" aria-label="Question palette">
         <div class="palette-header">
-          <h3 class="sidebar-heading">Question palette</h3>
+          <h3 class="sidebar-heading">Question palette (current subject)</h3>
           <div class="palette-legend">
             <span><i class="legend-dot legend-notvisited"></i>Not visited</span>
             <span><i class="legend-dot legend-visited"></i>Visited</span>
@@ -243,42 +260,7 @@
         <div class="palette-grid" id="paletteGrid" role="listbox" aria-label="Jump to question"></div>
       </section>
 
-      <!-- Hidden helpers kept for parity with invigilator/monitor views -->
-      <div style="display:none">
-        <div id="questionPalette"></div>
-        <div id="questionRow"></div>
-        <span id="totalQCount">0</span>
-        <span id="answeredCount">0</span>
-        <span id="palAnswered">0</span>
-        <span id="palFlagged">0</span>
-        <span id="palUnanswered">0</span>
-        <div id="progressBar" style="width:0%"></div>
-      </div>
-
     </main>
-  </div>
-</div>
-
-<!-- ===================== VIOLATION WARNING ===================== -->
-<div class="modal-overlay" id="violationModal" role="dialog" aria-modal="true">
-  <div class="modal-card">
-    <div class="result-badge" style="background:var(--danger-soft);color:var(--danger)">⚠️</div>
-    <h2>Security Violation Detected</h2>
-    <p class="modal-copy" id="violationMsg">A security violation has been detected.</p>
-    <p class="modal-copy"><strong>Violations: <span id="vCount">1</span> / 3</strong> — 3 violations will auto-submit your exam.</p>
-    <div class="modal-actions">
-      <button class="nav-btn nav-btn-primary" onclick="ExamEngine.dismissViolation()" style="width:100%">I Understand — Return to Exam</button>
-    </div>
-  </div>
-</div>
-
-<!-- ===================== AUTO-SUBMIT MODAL ===================== -->
-<div class="modal-overlay" id="autoSubmitModal" role="dialog" aria-modal="true">
-  <div class="modal-card">
-    <div class="result-badge" style="background:var(--danger-soft);color:var(--danger)">🚨</div>
-    <h2>Exam Auto-Submitted</h2>
-    <p class="modal-copy" id="autoSubmitMsg">Your exam was automatically submitted.</p>
-    <p class="modal-copy">Redirecting in <strong id="asTimer">5</strong>s…</p>
   </div>
 </div>
 
@@ -288,43 +270,39 @@
     <h2 id="submitModalTitle">Submit examination?</h2>
     <p class="modal-copy">You've answered <strong id="modalAnsweredCount">0</strong> of <strong id="modalTotalCount">0</strong> questions. Once submitted, you cannot change any answers.</p>
     <div class="modal-summary" id="modalSummary"></div>
-    <span id="smAnswered" style="display:none"></span>
-    <span id="smUnanswered" style="display:none"></span>
-    <span id="smTotal" style="display:none"></span>
     <div class="modal-actions">
-      <button class="nav-btn nav-btn-ghost" id="modalReviewBtn" onclick="ExamEngine.closeSubmitModal()">Review answers</button>
-      <button class="nav-btn nav-btn-submit" id="modalConfirmBtn" onclick="ExamEngine.confirmSubmit()">Confirm submission</button>
+      <button class="nav-btn nav-btn-ghost" id="modalReviewBtn">Review answers</button>
+      <button class="nav-btn nav-btn-submit" id="modalConfirmBtn">Confirm submission</button>
     </div>
   </div>
 </div>
 
-<!-- ===================== RESULT / SUCCESS SCREEN ===================== -->
+<!-- ===================== RESULT SCREEN ===================== -->
 <div class="modal-overlay" id="resultModal" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
   <div class="modal-card result-card" id="resultPrintArea">
     <div class="result-badge">✓</div>
     <h2 id="resultTitle">Examination submitted</h2>
-    <p class="modal-copy">Your responses have been recorded for <strong id="resultCandidateName">—</strong>. Grading in progress…</p>
+    <p class="modal-copy">Your responses have been recorded for <strong id="resultCandidateName">—</strong>.</p>
     <div class="result-grid">
       <div><span>Answered</span><strong id="resultAnswered">0</strong></div>
       <div><span>Unanswered</span><strong id="resultUnanswered">0</strong></div>
       <div><span>Flagged</span><strong id="resultFlagged">0</strong></div>
       <div><span>Time used</span><strong id="resultTimeUsed">—</strong></div>
     </div>
-    <p class="modal-copy">Redirecting in <strong id="succTimer">5</strong>s…</p>
+    <p class="modal-copy" id="resultRedirectMsg">Redirecting to your results in <strong id="succTimer">5</strong>s…</p>
     <div class="modal-actions">
-      <button class="nav-btn nav-btn-ghost" id="printResultBtn" onclick="window.print()" style="width:100%">Print summary</button>
+      <button class="nav-btn nav-btn-ghost" id="printResultBtn">Print summary</button>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.0/dist/iife/sdk.min.js"></script>
-<script src="../js/appwrite-config.js?v=2"></script>
-<script src="../js/icons.js?v=2"></script>
-<script src="../js/auth.js?v=2"></script>
-<script src="../js/anti-cheat.js?v=2"></script>
-<script src="../js/exam-engine.js?v=7"></script>
-<script src="../js/exam-timer.js?v=2"></script>
-<script src="../js/exam-sync.js?v=2"></script>
-<script src="../js/exam-portal-ui.js?v=2"></script>
+<script src="../js/appwrite-config.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/anti-cheat.js"></script>
+<script src="../js/exam-engine.js?v=4"></script>
+<script src="../js/exam-timer.js"></script>
+<script src="../js/exam-sync.js"></script>
 </body>
 </html>

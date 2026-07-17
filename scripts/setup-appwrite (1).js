@@ -173,10 +173,10 @@ async function main() {
   await attr('string',  DB_ID, 'exams', 'deactivatedAt',      { size:30 });
   await attr('string',  DB_ID, 'exams', 'createdAt',          { size:30 });
   await attr('string',  DB_ID, 'exams', 'updatedAt',          { size:30 });
-  await idx(DB_ID, 'exams', 'idx_active',    'key', ['active'],    ['ASC']);
-  await idx(DB_ID, 'exams', 'idx_subjectId', 'key', ['subjectId'], ['ASC']);
-  await idx(DB_ID, 'exams', 'idx_status',    'key', ['status'],    ['ASC']);
-  await idx(DB_ID, 'exams', 'idx_examName',  'fulltext', ['name'], ['ASC']);
+  await idx(DB_ID, 'exams', 'idx_active',    'key',     ['active'],    ['ASC']);
+  await idx(DB_ID, 'exams', 'idx_subjectId', 'key',     ['subjectId'], ['ASC']);
+  await idx(DB_ID, 'exams', 'idx_status',    'key',     ['status'],    ['ASC']);
+  await idx(DB_ID, 'exams', 'idx_name',      'fulltext',['name'],      ['ASC']);
 
   // QUESTIONS
   console.log('\n❓ Creating collection: questions');

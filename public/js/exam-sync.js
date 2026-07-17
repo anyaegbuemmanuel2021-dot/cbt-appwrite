@@ -18,7 +18,7 @@ const ExamSync = (() => {
     // Local save every 5 seconds
     localInterval = setInterval(() => {
       localStorage.setItem('examAnswers_' + examId, JSON.stringify(answersRef));
-      _setSavedStatus('💾 Saved');
+      _setSavedStatus('Saved');
     }, SD.CFG.AUTO_SAVE_MS || 5000);
 
     // Appwrite sync every 30 seconds
@@ -37,27 +37,23 @@ const ExamSync = (() => {
   async function _syncToAppwrite() {
     if (!sessionId) return;
     try {
-      _setSavedStatus('⏳ Syncing…');
+      _setSavedStatus('Syncing…', true);
       await DB.update(SD.COL.SESSIONS, sessionId, {
         answers:    JSON.stringify(answersRef),
         lastSynced: new Date().toISOString(),
       });
-      _setSavedStatus('☁️ Synced');
+      _setSavedStatus('Synced');
     } catch(e) {
-      _setSavedStatus('⚠️ Offline');
+      _setSavedStatus('Offline — retrying');
       console.warn('Sync failed (will retry):', e.message);
     }
   }
 
-  function _setSavedStatus(text) {
-    const el = document.getElementById('savedStatus');
-    if (el) el.textContent = text;
-
-    // Examina UI autosave pill
+  function _setSavedStatus(text, saving) {
+    const el   = document.getElementById('autosaveText');
     const pill = document.getElementById('autosavePill');
-    const pillText = document.getElementById('autosaveText');
-    if (pillText) pillText.textContent = /saving|syncing/i.test(text) ? 'Saving…' : /offline/i.test(text) ? 'Offline' : 'Saved';
-    if (pill) pill.classList.toggle('is-saving', /saving|syncing/i.test(text));
+    if (el) el.textContent = text;
+    if (pill) pill.classList.toggle('is-saving', !!saving);
   }
 
   async function forceSync() { await _syncToAppwrite(); }

@@ -191,17 +191,37 @@ const AdminDashboard = (() => {
 
   async function globalSearch(q) {
     if (!q || q.length < 2) return;
-    const [candsRes, examsRes] = await Promise.allSettled([
+
+    // Each collection is queried independently so a missing/failed index on
+    // one collection (e.g. no fulltext index yet) doesn't take down the rest
+    // of the search — this was the cause of the 400 error on /exams search.
+    const [cands, exams] = await Promise.allSettled([
       DB.list(SD.COL.CANDIDATES, [SD.Q.search('fullName', q)], 5),
       DB.list(SD.COL.EXAMS,      [SD.Q.search('name', q)],     5),
     ]);
-    const cands = candsRes.status === 'fulfilled' ? candsRes.value : { total: 0, documents: [] };
-    const exams = examsRes.status === 'fulfilled' ? examsRes.value : { total: 0, documents: [] };
-    if (examsRes.status === 'rejected') console.warn('Exam search failed (missing fulltext index on exams.name?):', examsRes.reason?.message);
-    if (candsRes.status === 'rejected') console.warn('Candidate search failed:', candsRes.reason?.message);
-    console.log('Search results:', cands.total + exams.total, 'found');
-    // TODO: render global search results dropdown
+
+    if (cands.status === 'rejected') console.warn('Candidate search failed:', cands.reason?.message);
+    if (exams.status === 'rejected') console.warn('Exam search failed:', exams.reason?.message);
+
+    const candDocs = cands.status === 'fulfilled' ? cands.value.documents : [];
+    const examDocs = exams.status === 'fulfilled' ? exams.value.documents : [];
+
+    const dropdown = document.getElementById('globalSearchResults');
+    if (!dropdown) return;
+
+    const rows = [
+      ...candDocs.map(c => `<a class="gs-row" href="admin-dashboard.html?module=candidates"><span>👤</span> ${c.fullName || 'Unnamed candidate'}</a>`),
+      ...examDocs.map(e => `<a class="gs-row" href="admin-dashboard.html?module=exams"><span>📝</span> ${e.name || 'Unnamed exam'}</a>`),
+    ];
+    dropdown.innerHTML = rows.join('') || '<div class="gs-row gs-empty">No results found.</div>';
+    dropdown.style.display = 'block';
   }
+
+  document.addEventListener('click', e => {
+    const wrap = document.querySelector('.global-search-wrap');
+    const dropdown = document.getElementById('globalSearchResults');
+    if (wrap && dropdown && !wrap.contains(e.target)) dropdown.style.display = 'none';
+  });
 
   function refresh() { loadDashboard(); }
   function exportSummary() { window.print(); }

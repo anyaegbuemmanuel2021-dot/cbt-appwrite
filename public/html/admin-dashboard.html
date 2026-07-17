@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Console – SOFTLY DIGITAL V3</title>
-  <link rel="stylesheet" href="../css/main.css?v=2">
-  <link rel="stylesheet" href="../css/admin.css?v=2">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/admin.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -62,7 +62,12 @@
       <button class="menu-btn" onclick="toggleAdminSidebar()">☰</button>
       <div class="admin-topbar-title" id="adminPageTitle">Dashboard Overview</div>
       <div class="admin-topbar-right">
-        <input type="text" id="globalSearch" class="global-search" placeholder="🔍 Global search…" autocomplete="off" oninput="AdminDashboard.globalSearch(this.value)">
+        <div class="global-search-wrap">
+          <input type="text" id="globalSearch" class="global-search" placeholder="🔍 Global search…"
+                 oninput="AdminDashboard.globalSearch(this.value)"
+                 onfocus="if(this.value.length>=2) document.getElementById('globalSearchResults').style.display='block'">
+          <div id="globalSearchResults" class="global-search-results"></div>
+        </div>
         <div class="admin-notif" onclick="AdminDashboard.toggleNotifications()">🔔<span class="badge-count" id="adminNotifBadge" style="display:none">0</span></div>
         <div class="admin-live"><span class="live-dot"></span>Live</div>
       </div>
@@ -120,7 +125,6 @@
           <tbody id="centresBody"><tr><td colspan="7" class="loading-placeholder">Loading…</td></tr></tbody>
         </table>
       </div>
-      <div id="centresPagination" class="pagination-wrap"></div>
     </div>
 
     <!-- ── EXAMS ──────────────────────────────────────────────────────── -->
@@ -146,7 +150,6 @@
             <tbody id="examsBody"><tr><td colspan="8" class="loading-placeholder">Loading…</td></tr></tbody>
           </table>
         </div>
-        <div id="examsPagination" class="pagination-wrap"></div>
       </div>
     </div>
 
@@ -169,7 +172,6 @@
           <tbody id="usersBody"><tr><td colspan="7" class="loading-placeholder">Loading…</td></tr></tbody>
         </table>
       </div>
-      <div id="usersPagination" class="pagination-wrap"></div>
     </div>
 
     <!-- ── CANDIDATES ─────────────────────────────────────────────────── -->
@@ -236,7 +238,6 @@
         <button class="btn-primary-sm" onclick="SubjectManager.showAdd()">+ Add Subject</button>
       </div>
       <div id="subjectsTree"><div class="loading-placeholder">Loading subjects…</div></div>
-      <div id="subjectsPagination" class="pagination-wrap"></div>
     </div>
 
     <!-- ── RESULTS ────────────────────────────────────────────────────── -->
@@ -258,7 +259,6 @@
           <tbody id="resultsBody"><tr><td colspan="7" class="loading-placeholder">Loading…</td></tr></tbody>
         </table>
       </div>
-      <div id="resultsPagination" class="pagination-wrap"></div>
     </div>
 
     <!-- ── AI MODULE ──────────────────────────────────────────────────── -->
@@ -687,14 +687,14 @@
   <script src="../js/icons.js"></script>
   <script src="../js/rbac.js"></script>
   <script src="../js/auth.js"></script>
-  <script src="../js/managers.js?v=3"></script>
+  <script src="../js/managers.js"></script>
   <script src="../js/candidate-manager.js"></script>
   <script src="../js/question-manager.js"></script>
   <script src="../js/ai-module.js"></script>
   <script src="../js/analytics-manager.js"></script>
   <script src="../js/notification-manager.js"></script>
   <script src="../js/audit-manager.js"></script>
-  <script src="../js/admin-dashboard.js?v=2"></script>
+  <script src="../js/admin-dashboard.js"></script>
   <script>
     // Image preview for candidate photo upload
     document.addEventListener('DOMContentLoaded', () => {

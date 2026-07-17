@@ -7,9 +7,9 @@ const CentreManager = (() => {
   let editingId      = null;
   let allCentres     = [];
   let candidateCounts= {};
-  let currentList    = [];
-  let currentPage    = 0;
-  const PAGE_SIZE     = 20;
+  let filtered       = [];
+  let currentPage     = 0;
+  const PAGE_SIZE      = 10;
 
   async function load() {
     const tbody = document.getElementById('centresBody');
@@ -26,30 +26,61 @@ const CentreManager = (() => {
         const cid = d.centreId;
         if (cid) candidateCounts[cid] = (candidateCounts[cid] || 0) + 1;
       });
-      currentPage = 0;
-      _setList(allCentres);
+      renderTable(allCentres);
     } catch(e) {
       tbody.innerHTML = `<tr><td colspan="7" style="color:#dc3545">${e.message}</td></tr>`;
     }
   }
 
-  function _setList(list) {
-    currentList = list;
+  /* renderTable() is the public entry point used by load()/filter()/filterStatus() —
+     it resets to page 1 and stores the filtered list; _renderPage() draws the current page. */
+  function renderTable(centres) {
+    filtered = centres;
     currentPage = 0;
     _renderPage();
   }
 
+  function goToPage(p) { currentPage = p; _renderPage(); }
+
   function _renderPage() {
+    const tbody = document.getElementById('centresBody'); if(!tbody) return;
+    const totalItems = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    currentPage = Math.min(Math.max(currentPage, 0), totalPages - 1);
     const start = currentPage * PAGE_SIZE;
-    renderTable(currentList.slice(start, start + PAGE_SIZE));
-    _renderPagination();
+    const pageItems = filtered.slice(start, start + PAGE_SIZE);
+
+    if (!pageItems.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="loading-placeholder">No centres found.</td></tr>';
+    } else {
+      tbody.innerHTML = pageItems.map(c => {
+        const count    = candidateCounts[c.id] || 0;
+        const cap      = c.capacity || 0;
+        const over     = cap > 0 && count > cap;
+        return `<tr>
+          <td><strong>${_esc(c.code||'—')}</strong></td>
+          <td>${_esc(c.name)}</td>
+          <td>${_esc(c.state||'—')}</td>
+          <td>${cap||'—'}</td>
+          <td><span class="${over?'badge badge-danger':''}">${count}${cap?` / ${cap}`:''}</span></td>
+          <td><span class="badge ${c.status==='active'?'badge-success':'badge-gray'}">${c.status||'inactive'}</span></td>
+          <td class="action-cell">
+            <button class="btn-outline-sm" onclick="CentreManager.showEdit('${c.id}')">✏️ Edit</button>
+            <button class="btn-danger btn-xs" onclick="CentreManager.toggleStatus('${c.id}','${c.status}')">
+              ${c.status==='active'?'⛔ Deactivate':'✅ Activate'}
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+    _renderPagination(totalItems, totalPages);
   }
 
-  function _renderPagination() {
+  function _renderPagination(totalItems, totalPages) {
     const wrap = document.getElementById('centresPagination'); if(!wrap) return;
-    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+    const shown = Math.max(0, Math.min(PAGE_SIZE, totalItems - currentPage * PAGE_SIZE));
     wrap.innerHTML = `
-      <div class="pagination-info">Showing ${currentList.length ? Math.min(currentList.length,(currentPage+1)*PAGE_SIZE) : 0} of ${currentList.length} centres</div>
+      <div class="pagination-info">Showing ${shown} of ${totalItems} centres</div>
       <div class="pagination-btns">
         <button class="btn-outline-sm" onclick="CentreManager.goToPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Prev</button>
         <span>Page ${currentPage+1} / ${totalPages}</span>
@@ -57,46 +88,13 @@ const CentreManager = (() => {
       </div>`;
   }
 
-  function goToPage(p) {
-    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
-    if (p < 0 || p > totalPages-1) return;
-    currentPage = p;
-    _renderPage();
-  }
-
-  function renderTable(centres) {
-    const tbody = document.getElementById('centresBody'); if(!tbody) return;
-    if (!centres.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="loading-placeholder">No centres found.</td></tr>'; return;
-    }
-    tbody.innerHTML = centres.map(c => {
-      const count    = candidateCounts[c.id] || 0;
-      const cap      = c.capacity || 0;
-      const over     = cap > 0 && count > cap;
-      return `<tr>
-        <td><strong>${_esc(c.code||'—')}</strong></td>
-        <td>${_esc(c.name)}</td>
-        <td>${_esc(c.state||'—')}</td>
-        <td>${cap||'—'}</td>
-        <td><span class="${over?'badge badge-danger':''}">${count}${cap?` / ${cap}`:''}</span></td>
-        <td><span class="badge ${c.status==='active'?'badge-success':'badge-gray'}">${c.status||'inactive'}</span></td>
-        <td class="action-cell">
-          <button class="btn-outline-sm" onclick="CentreManager.showEdit('${c.id}')">✏️ Edit</button>
-          <button class="btn-danger btn-xs" onclick="CentreManager.toggleStatus('${c.id}','${c.status}')">
-            ${c.status==='active'?'⛔ Deactivate':'✅ Activate'}
-          </button>
-        </td>
-      </tr>`;
-    }).join('');
-  }
-
-  function filter(q) { _setList(allCentres.filter(c =>
+  function filter(q) { renderTable(allCentres.filter(c =>
     c.name?.toLowerCase().includes(q.toLowerCase()) ||
     c.code?.toLowerCase().includes(q.toLowerCase()) ||
     c.state?.toLowerCase().includes(q.toLowerCase()))); }
 
   function filterStatus(s) {
-    _setList(s==='all' ? allCentres : allCentres.filter(c => c.status===s));
+    renderTable(s==='all' ? allCentres : allCentres.filter(c => c.status===s));
   }
 
   function showAdd() {
@@ -188,10 +186,6 @@ const CentreManager = (() => {
  * ════════════════════════════════════════════════════════════════════*/
 const SubjectManager = (() => {
   'use strict';
-  let allSubjects = [];
-  let allTopics   = [];
-  let currentPage = 0;
-  const PAGE_SIZE  = 10;
 
   async function load() {
     const tree = document.getElementById('subjectsTree'); if(!tree) return;
@@ -201,61 +195,32 @@ const SubjectManager = (() => {
         DB.list(SD.COL.SUBJECTS, [SD.Q.orderAsc('name')], 200),
         DB.list(SD.COL.TOPICS,   [SD.Q.orderAsc('name')], 1000),
       ]);
-      allSubjects = subjRes.documents;
-      allTopics   = topicRes.documents;
-      currentPage = 0;
-      _renderPage();
-    } catch(e) { tree.innerHTML = `<p style="color:#dc3545">${e.message}</p>`; }
-  }
+      const subjects = subjRes.documents;
+      const topics   = topicRes.documents;
 
-  function _renderPage() {
-    const tree = document.getElementById('subjectsTree'); if(!tree) return;
-    const start = currentPage * PAGE_SIZE;
-    const pageSubjects = allSubjects.slice(start, start + PAGE_SIZE);
-
-    tree.innerHTML = pageSubjects.map(s => {
-      const subTopics = allTopics.filter(t => t.subjectId === s.$id);
-      return `<div class="subj-tree-node">
-        <div class="subj-node-header">
-          <span class="subj-icon">📚</span>
-          <strong>${_esc(s.name)}</strong>
-          <span class="subj-meta">(${subTopics.length} topics)</span>
-          <div class="subj-actions">
-            <button class="btn-outline-sm" onclick="SubjectManager.editSubject('${s.$id}','${_esc(s.name)}')">✏️</button>
-            <button class="btn-primary-sm" onclick="SubjectManager.addTopic('${s.$id}','${_esc(s.name)}')">+ Topic</button>
-            <button class="btn-danger btn-xs" onclick="SubjectManager.deleteSubject('${s.$id}')">🗑️</button>
+      tree.innerHTML = subjects.map(s => {
+        const subTopics = topics.filter(t => t.subjectId === s.$id);
+        return `<div class="subj-tree-node">
+          <div class="subj-node-header">
+            <span class="subj-icon">📚</span>
+            <strong>${_esc(s.name)}</strong>
+            <span class="subj-meta">(${subTopics.length} topics)</span>
+            <div class="subj-actions">
+              <button class="btn-outline-sm" onclick="SubjectManager.editSubject('${s.$id}','${_esc(s.name)}')">✏️</button>
+              <button class="btn-primary-sm" onclick="SubjectManager.addTopic('${s.$id}','${_esc(s.name)}')">+ Topic</button>
+              <button class="btn-danger btn-xs" onclick="SubjectManager.deleteSubject('${s.$id}')">🗑️</button>
+            </div>
           </div>
-        </div>
-        <div class="topic-list">
-          ${subTopics.map(t => `<div class="topic-node">
-            <span class="topic-icon">📖</span> ${_esc(t.name)}
-            <button class="btn-outline-sm btn-xs" onclick="SubjectManager.editTopic('${t.$id}','${_esc(t.name)}')">✏️</button>
-            <button class="btn-danger btn-xs" onclick="SubjectManager.deleteTopic('${t.$id}')">🗑️</button>
-          </div>`).join('') || '<p class="no-topics">No topics yet.</p>'}
-        </div>
-      </div>`;
-    }).join('') || '<p class="no-data">No subjects yet. Add one above.</p>';
-
-    _renderPagination();
-  }
-
-  function _renderPagination() {
-    const wrap = document.getElementById('subjectsPagination'); if(!wrap) return;
-    const totalPages = Math.max(1, Math.ceil(allSubjects.length / PAGE_SIZE));
-    wrap.innerHTML = `
-      <div class="pagination-info">Showing ${allSubjects.length ? Math.min(allSubjects.length,(currentPage+1)*PAGE_SIZE) : 0} of ${allSubjects.length} subjects</div>
-      <div class="pagination-btns">
-        <button class="btn-outline-sm" onclick="SubjectManager.goToPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Prev</button>
-        <span>Page ${currentPage+1} / ${totalPages}</span>
-        <button class="btn-outline-sm" onclick="SubjectManager.goToPage(${currentPage+1})" ${currentPage>=totalPages-1?'disabled':''}>Next →</button>
-      </div>`;
-  }
-
-  function goToPage(p) {
-    const totalPages = Math.max(1, Math.ceil(allSubjects.length / PAGE_SIZE));
-    if (p < 0 || p > totalPages-1) return;
-    currentPage = p;
-    _renderPage();
+          <div class="topic-list">
+            ${subTopics.map(t => `<div class="topic-node">
+              <span class="topic-icon">📖</span> ${_esc(t.name)}
+              <button class="btn-outline-sm btn-xs" onclick="SubjectManager.editTopic('${t.$id}','${_esc(t.name)}')">✏️</button>
+              <button class="btn-danger btn-xs" onclick="SubjectManager.deleteTopic('${t.$id}')">🗑️</button>
+            </div>`).join('') || '<p class="no-topics">No topics yet.</p>'}
+          </div>
+        </div>`;
+      }).join('') || '<p class="no-data">No subjects yet. Add one above.</p>';
+    } catch(e) { tree.innerHTML = `<p style="color:#dc3545">${e.message}</p>`; }
   }
 
   async function showAdd() {
@@ -305,7 +270,7 @@ const SubjectManager = (() => {
 
   function _esc(s){ return String(s||'').replace(/'/g,"\\'").replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 
-  return { load, showAdd, editSubject, deleteSubject, addTopic, editTopic, deleteTopic, goToPage };
+  return { load, showAdd, editSubject, deleteSubject, addTopic, editTopic, deleteTopic };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -316,9 +281,6 @@ const ExamManager = (() => {
   'use strict';
   let editingId  = null;
   let allExams   = [];
-  let currentList = [];
-  let currentPage = 0;
-  const PAGE_SIZE  = 20;
 
   async function load() {
     await _loadExams();
@@ -331,95 +293,86 @@ const ExamManager = (() => {
     try {
       const res = await DB.list(SD.COL.EXAMS, [SD.Q.orderDesc('$createdAt')], 200);
       allExams = res.documents.map(d => ({ id: d.$id, ...d }));
-      _setList(allExams);
+      renderTable(allExams);
     } catch(e) { tbody.innerHTML = `<tr><td colspan="8" style="color:#dc3545">${e.message}</td></tr>`; }
   }
 
-  function _setList(list) {
-    currentList = list;
-    currentPage = 0;
-    _renderPage();
-  }
-
-  function _renderPage() {
-    const start = currentPage * PAGE_SIZE;
-    renderTable(currentList.slice(start, start + PAGE_SIZE));
-    _renderPagination();
-  }
-
-  function _renderPagination() {
-    const wrap = document.getElementById('examsPagination'); if(!wrap) return;
-    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
-    wrap.innerHTML = `
-      <div class="pagination-info">Showing ${currentList.length ? Math.min(currentList.length,(currentPage+1)*PAGE_SIZE) : 0} of ${currentList.length} exams</div>
-      <div class="pagination-btns">
-        <button class="btn-outline-sm" onclick="ExamManager.goToPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Prev</button>
-        <span>Page ${currentPage+1} / ${totalPages}</span>
-        <button class="btn-outline-sm" onclick="ExamManager.goToPage(${currentPage+1})" ${currentPage>=totalPages-1?'disabled':''}>Next →</button>
-      </div>`;
-  }
-
-  function goToPage(p) {
-    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
-    if (p < 0 || p > totalPages-1) return;
-    currentPage = p;
-    _renderPage();
-  }
+  let examsFiltered = [];
+  let examsPage      = 0;
+  const EXAMS_PAGE_SIZE = 10;
 
   function renderTable(exams) {
+    examsFiltered = exams;
+    examsPage = 0;
+    _renderExamsPage();
+  }
+
+  function goToPage(p) { examsPage = p; _renderExamsPage(); }
+
+  function _renderExamsPage() {
     const tbody = document.getElementById('examsBody'); if(!tbody) return;
-    if (!exams.length) { tbody.innerHTML = '<tr><td colspan="8" class="loading-placeholder">No exams found.</td></tr>'; return; }
-    tbody.innerHTML = exams.map(ex => {
-      const sched = ex.scheduledStart
-        ? new Date(ex.scheduledStart).toLocaleString('en-NG',{dateStyle:'short',timeStyle:'short'})
-        : 'Not scheduled';
-      const badge = ex.active
-        ? '<span class="badge badge-success">Active</span>'
-        : ex.status==='completed'
-          ? '<span class="badge badge-primary">Completed</span>'
-          : '<span class="badge badge-gray">Inactive</span>';
-      const candidateIds = ex.candidateIds ? JSON.parse(ex.candidateIds) : [];
-      return `<tr>
-        <td><strong>${_esc(ex.name)}</strong></td>
-        <td>${_esc(ex.subject||ex.subjectName||'—')}</td>
-        <td>${ex.duration} min</td>
-        <td>${ex.totalQuestions}</td>
-        <td>${sched}</td>
-        <td>${badge}</td>
-        <td>${candidateIds.length}</td>
-        <td class="action-cell">
-          <button class="btn-outline-sm" onclick="ExamManager.showEdit('${ex.id}')">✏️</button>
-          <button class="btn-outline-sm" onclick="ExamManager.showAssign('${ex.id}')">👥 Assign</button>
-          ${ex.active
-            ? `<button class="btn-danger btn-xs" onclick="ExamManager.deactivate('${ex.id}')">⛔ Stop</button>`
-            : `<button class="btn-success-sm btn-xs" onclick="ExamManager.activate('${ex.id}')">▶️ Start</button>`}
-          <button class="btn-outline-sm" onclick="ExamManager.viewMonitor('${ex.id}')">📡 Monitor</button>
-          ${!ex.active?`<button class="btn-danger btn-xs" onclick="ExamManager.delete('${ex.id}')">🗑️</button>`:''}
-        </td>
-      </tr>`;
-    }).join('');
+    const totalItems = examsFiltered.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / EXAMS_PAGE_SIZE));
+    examsPage = Math.min(Math.max(examsPage, 0), totalPages - 1);
+    const start = examsPage * EXAMS_PAGE_SIZE;
+    const pageItems = examsFiltered.slice(start, start + EXAMS_PAGE_SIZE);
+
+    if (!pageItems.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="loading-placeholder">No exams found.</td></tr>';
+    } else {
+      tbody.innerHTML = pageItems.map(ex => {
+        const sched = ex.scheduledStart
+          ? new Date(ex.scheduledStart).toLocaleString('en-NG',{dateStyle:'short',timeStyle:'short'})
+          : 'Not scheduled';
+        const badge = ex.active
+          ? '<span class="badge badge-success">Active</span>'
+          : ex.status==='completed'
+            ? '<span class="badge badge-primary">Completed</span>'
+            : '<span class="badge badge-gray">Inactive</span>';
+        const candidateIds = ex.candidateIds ? JSON.parse(ex.candidateIds) : [];
+        return `<tr>
+          <td><strong>${_esc(ex.name)}</strong></td>
+          <td>${_esc(ex.subject||ex.subjectName||'—')}</td>
+          <td>${ex.duration} min</td>
+          <td>${ex.totalQuestions}</td>
+          <td>${sched}</td>
+          <td>${badge}</td>
+          <td>${candidateIds.length}</td>
+          <td class="action-cell">
+            <button class="btn-outline-sm" onclick="ExamManager.showEdit('${ex.id}')">✏️</button>
+            <button class="btn-outline-sm" onclick="ExamManager.showAssign('${ex.id}')">👥 Assign</button>
+            ${ex.active
+              ? `<button class="btn-danger btn-xs" onclick="ExamManager.deactivate('${ex.id}')">⛔ Stop</button>`
+              : `<button class="btn-success-sm btn-xs" onclick="ExamManager.activate('${ex.id}')">▶️ Start</button>`}
+            <button class="btn-outline-sm" onclick="ExamManager.viewMonitor('${ex.id}')">📡 Monitor</button>
+            ${!ex.active?`<button class="btn-danger btn-xs" onclick="ExamManager.delete('${ex.id}')">🗑️</button>`:''}
+          </td>
+        </tr>`;
+      }).join('');
+    }
+    _renderExamsPagination(totalItems, totalPages);
+  }
+
+  function _renderExamsPagination(totalItems, totalPages) {
+    const wrap = document.getElementById('examsPagination'); if(!wrap) return;
+    const shown = Math.max(0, Math.min(EXAMS_PAGE_SIZE, totalItems - examsPage * EXAMS_PAGE_SIZE));
+    wrap.innerHTML = `
+      <div class="pagination-info">Showing ${shown} of ${totalItems} exams</div>
+      <div class="pagination-btns">
+        <button class="btn-outline-sm" onclick="ExamManager.goToPage(${examsPage-1})" ${examsPage===0?'disabled':''}>← Prev</button>
+        <span>Page ${examsPage+1} / ${totalPages}</span>
+        <button class="btn-outline-sm" onclick="ExamManager.goToPage(${examsPage+1})" ${examsPage>=totalPages-1?'disabled':''}>Next →</button>
+      </div>`;
   }
 
   function switchTab(tab, btn) {
     document.querySelectorAll('.etab').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
-    if (tab==='all')      { _showAllView(); return; }
+    if (tab==='all')      { renderTable(allExams); return; }
     if (tab==='schedule') { _showScheduleView(); return; }
     if (tab==='assign')   { _showAssignView(); return; }
     if (tab==='activate') { _showActivateView(); return; }
     if (tab==='monitor')  { _showMonitorView(); return; }
-  }
-
-  function _showAllView() {
-    document.getElementById('examTabContent').innerHTML = `
-      <div class="table-wrap">
-        <table class="admin-table">
-          <thead><tr><th>Exam Name</th><th>Subject</th><th>Duration</th><th>Questions</th><th>Scheduled</th><th>Status</th><th>Candidates</th><th>Actions</th></tr></thead>
-          <tbody id="examsBody"></tbody>
-        </table>
-      </div>
-      <div id="examsPagination" class="pagination-wrap"></div>`;
-    _setList(allExams);
   }
 
   function _showActivateView() {
@@ -671,9 +624,9 @@ const UserManager = (() => {
   'use strict';
   let editingId = null;
   let allUsers  = [];
-  let currentList = [];
-  let currentPage = 0;
-  const PAGE_SIZE  = 20;
+  let usersFiltered = [];
+  let usersPage      = 0;
+  const USERS_PAGE_SIZE = 10;
 
   async function load() {
     const tbody = document.getElementById('usersBody'); if(!tbody) return;
@@ -681,59 +634,58 @@ const UserManager = (() => {
     try {
       const res = await DB.list(SD.COL.USERS, [SD.Q.orderAsc('fullName')], 500);
       allUsers = res.documents.map(d => ({ id: d.$id, ...d }));
-      _setList(allUsers);
+      renderTable(allUsers);
       _wireRoleTabs();
     } catch(e) { tbody.innerHTML = `<tr><td colspan="7">${e.message}</td></tr>`; }
   }
 
-  function _setList(list) {
-    currentList = list;
-    currentPage = 0;
-    _renderPage();
-  }
-
-  function _renderPage() {
-    const start = currentPage * PAGE_SIZE;
-    renderTable(currentList.slice(start, start + PAGE_SIZE));
-    _renderPagination();
-  }
-
-  function _renderPagination() {
-    const wrap = document.getElementById('usersPagination'); if(!wrap) return;
-    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
-    wrap.innerHTML = `
-      <div class="pagination-info">Showing ${currentList.length ? Math.min(currentList.length,(currentPage+1)*PAGE_SIZE) : 0} of ${currentList.length} users</div>
-      <div class="pagination-btns">
-        <button class="btn-outline-sm" onclick="UserManager.goToPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Prev</button>
-        <span>Page ${currentPage+1} / ${totalPages}</span>
-        <button class="btn-outline-sm" onclick="UserManager.goToPage(${currentPage+1})" ${currentPage>=totalPages-1?'disabled':''}>Next →</button>
-      </div>`;
-  }
-
-  function goToPage(p) {
-    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
-    if (p < 0 || p > totalPages-1) return;
-    currentPage = p;
-    _renderPage();
-  }
-
   function renderTable(users) {
+    usersFiltered = users;
+    usersPage = 0;
+    _renderUsersPage();
+  }
+
+  function goToPage(p) { usersPage = p; _renderUsersPage(); }
+
+  function _renderUsersPage() {
     const tbody = document.getElementById('usersBody'); if(!tbody) return;
-    if (!users.length) { tbody.innerHTML = '<tr><td colspan="7" class="loading-placeholder">No users.</td></tr>'; return; }
-    tbody.innerHTML = users.map(u => `<tr>
-      <td>${_esc(u.fullName||'—')}</td>
-      <td>${_esc(u.email||'—')}</td>
-      <td><span class="badge badge-${u.role==='admin'?'primary':u.role==='superadmin'?'danger':'info'}">${u.role}</span></td>
-      <td>${_esc(u.centreName||'—')}</td>
-      <td><span class="badge ${u.status==='active'?'badge-success':'badge-gray'}">${u.status||'active'}</span></td>
-      <td>${u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-NG') : 'Never'}</td>
-      <td class="action-cell">
-        <button class="btn-outline-sm" onclick="UserManager.showEdit('${u.id}')">✏️ Edit</button>
-        <button class="btn-danger btn-xs" onclick="UserManager.toggleStatus('${u.id}','${u.status||'active'}')">
-          ${(u.status||'active')==='active'?'⛔':'✅'}
-        </button>
-      </td>
-    </tr>`).join('');
+    const totalItems = usersFiltered.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / USERS_PAGE_SIZE));
+    usersPage = Math.min(Math.max(usersPage, 0), totalPages - 1);
+    const start = usersPage * USERS_PAGE_SIZE;
+    const pageItems = usersFiltered.slice(start, start + USERS_PAGE_SIZE);
+
+    if (!pageItems.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="loading-placeholder">No users.</td></tr>';
+    } else {
+      tbody.innerHTML = pageItems.map(u => `<tr>
+        <td>${_esc(u.fullName||'—')}</td>
+        <td>${_esc(u.email||'—')}</td>
+        <td><span class="badge badge-${u.role==='admin'?'primary':u.role==='superadmin'?'danger':'info'}">${u.role}</span></td>
+        <td>${_esc(u.centreName||'—')}</td>
+        <td><span class="badge ${u.status==='active'?'badge-success':'badge-gray'}">${u.status||'active'}</span></td>
+        <td>${u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-NG') : 'Never'}</td>
+        <td class="action-cell">
+          <button class="btn-outline-sm" onclick="UserManager.showEdit('${u.id}')">✏️ Edit</button>
+          <button class="btn-danger btn-xs" onclick="UserManager.toggleStatus('${u.id}','${u.status||'active'}')">
+            ${(u.status||'active')==='active'?'⛔':'✅'}
+          </button>
+        </td>
+      </tr>`).join('');
+    }
+    _renderUsersPagination(totalItems, totalPages);
+  }
+
+  function _renderUsersPagination(totalItems, totalPages) {
+    const wrap = document.getElementById('usersPagination'); if(!wrap) return;
+    const shown = Math.max(0, Math.min(USERS_PAGE_SIZE, totalItems - usersPage * USERS_PAGE_SIZE));
+    wrap.innerHTML = `
+      <div class="pagination-info">Showing ${shown} of ${totalItems} users</div>
+      <div class="pagination-btns">
+        <button class="btn-outline-sm" onclick="UserManager.goToPage(${usersPage-1})" ${usersPage===0?'disabled':''}>← Prev</button>
+        <span>Page ${usersPage+1} / ${totalPages}</span>
+        <button class="btn-outline-sm" onclick="UserManager.goToPage(${usersPage+1})" ${usersPage>=totalPages-1?'disabled':''}>Next →</button>
+      </div>`;
   }
 
   function _wireRoleTabs() {
@@ -742,7 +694,7 @@ const UserManager = (() => {
         document.querySelectorAll('.rtab').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
         const role = btn.dataset.role;
-        _setList(role==='all' ? allUsers : allUsers.filter(u=>u.role===role));
+        renderTable(role==='all' ? allUsers : allUsers.filter(u=>u.role===role));
       });
     });
   }
@@ -833,7 +785,7 @@ const UserManager = (() => {
     if (form) form.addEventListener('submit', save);
   });
 
-  return { load, showAdd, showEdit, save, toggleStatus, goToPage };
+  return { load, showAdd, showEdit, save, toggleStatus };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -843,9 +795,6 @@ const ResultManager = (() => {
   'use strict';
   let allResults  = [];
   let examsLoaded = false;
-  let currentList = [];
-  let currentPage = 0;
-  const PAGE_SIZE  = 20;
 
   async function load() {
     const tbody = document.getElementById('resultsBody'); if(!tbody) return;
@@ -857,39 +806,8 @@ const ResultManager = (() => {
       if (examFilter) queries.push(SD.Q.equal('examId', examFilter));
       const res = await SD.databases.listDocuments(SD.DB_ID, SD.COL.RESULTS, queries);
       allResults = res.documents.map(d => ({ id: d.$id, ...d }));
-      _setList(allResults);
+      _renderTable(allResults);
     } catch(e) { tbody.innerHTML = `<tr><td colspan="7" style="color:#dc3545">${e.message}</td></tr>`; }
-  }
-
-  function _setList(list) {
-    currentList = list;
-    currentPage = 0;
-    _renderPage();
-  }
-
-  function _renderPage() {
-    const start = currentPage * PAGE_SIZE;
-    _renderTable(currentList.slice(start, start + PAGE_SIZE));
-    _renderPagination();
-  }
-
-  function _renderPagination() {
-    const wrap = document.getElementById('resultsPagination'); if(!wrap) return;
-    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
-    wrap.innerHTML = `
-      <div class="pagination-info">Showing ${currentList.length ? Math.min(currentList.length,(currentPage+1)*PAGE_SIZE) : 0} of ${currentList.length} results</div>
-      <div class="pagination-btns">
-        <button class="btn-outline-sm" onclick="ResultManager.goToPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Prev</button>
-        <span>Page ${currentPage+1} / ${totalPages}</span>
-        <button class="btn-outline-sm" onclick="ResultManager.goToPage(${currentPage+1})" ${currentPage>=totalPages-1?'disabled':''}>Next →</button>
-      </div>`;
-  }
-
-  function goToPage(p) {
-    const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
-    if (p < 0 || p > totalPages-1) return;
-    currentPage = p;
-    _renderPage();
   }
 
   async function _loadExamFilter() {
@@ -922,14 +840,14 @@ const ResultManager = (() => {
   }
 
   function search(q) {
-    _setList(allResults.filter(r =>
+    _renderTable(allResults.filter(r =>
       (r.candidateName||'').toLowerCase().includes(q.toLowerCase()) ||
       (r.candidateId||'').toLowerCase().includes(q.toLowerCase())));
   }
 
   function filterStatus(s) {
-    if (s==='all') { _setList(allResults); return; }
-    _setList(allResults.filter(r => (s==='passed')===!!r.passed));
+    if (s==='all') { _renderTable(allResults); return; }
+    _renderTable(allResults.filter(r => (s==='passed')===!!r.passed));
   }
 
   async function viewDetail(resultId) {
@@ -989,7 +907,7 @@ const ResultManager = (() => {
 
   function _esc(s){ const d=document.createElement('div');d.textContent=s??'';return d.innerHTML; }
 
-  return { load, search, filterStatus, viewDetail, exportResults, goToPage };
+  return { load, search, filterStatus, viewDetail, exportResults };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════

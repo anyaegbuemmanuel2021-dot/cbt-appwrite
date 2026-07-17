@@ -145,7 +145,7 @@ const AntiCheat = (() => {
       const modal = document.getElementById('violationModal');
       const msg   = document.getElementById('violationMsg');
       if (msg) msg.textContent = 'You have been inactive. Exam will auto-submit soon due to inactivity.';
-      if (modal) modal.classList.add('active');
+      if (modal) modal.classList.add('is-visible');
     }, IDLE_WARNING_MS());
     idleTimer = setTimeout(() => {
       if (!isActive) return;
@@ -187,7 +187,7 @@ const AntiCheat = (() => {
     const modal = document.getElementById('violationModal');
     const msg   = document.getElementById('violationMsg');
     if (msg)   msg.textContent = message;
-    if (modal) modal.classList.add('active');
+    if (modal) modal.classList.add('is-visible');
 
     if (violations >= (SD.CFG.MAX_VIOLATIONS||3)) {
       isActive = false;
@@ -197,7 +197,7 @@ const AntiCheat = (() => {
   }
 
   function dismiss() {
-    document.getElementById('violationModal')?.classList.remove('active');
+    document.getElementById('violationModal')?.classList.remove('is-visible');
     window.ExamEngine?.enforceFullscreen();
     _resetIdleTimer();
   }
