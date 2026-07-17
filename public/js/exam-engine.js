@@ -46,6 +46,13 @@ const ExamEngine = (() => {
       exam = { id: examDoc.$id, ...examDoc };
       _setEl('ehTitle', exam.name);
 
+      // subjectIds may be stored as a JSON string rather than a real array
+      // (same root cause as the options-parsing bug) — normalize it here.
+      if (typeof exam.subjectIds === 'string') {
+        try { exam.subjectIds = JSON.parse(exam.subjectIds); } catch (_) { exam.subjectIds = []; }
+      }
+      if (!Array.isArray(exam.subjectIds)) exam.subjectIds = exam.subjectIds ? [exam.subjectIds] : [];
+
       /* ── Step 2: Load questions by subject (JAMB style) ── */
       _setStep('ls2', '⏳ Loading questions…');
       // Questions linked to exam by examId field OR by subjectId if exam has subjectIds[]
@@ -138,7 +145,9 @@ const ExamEngine = (() => {
       ExamTimer.start(timeLeft, examId, () => autoSubmit('timeout'));
 
       isActive = true;
-      await enforceFullscreen();
+      // NOTE: fullscreen is NOT requested here — browsers block requestFullscreen()
+      // unless it's triggered directly by a user click. See beginExam() below,
+      // which the "Begin Exam" button calls.
 
       /* ── Start sync loop ── */
       ExamSync.start(examId, sessionId, answers);
@@ -155,9 +164,18 @@ const ExamEngine = (() => {
       renderQuestion(0);
       updatePalette();
 
-      document.getElementById('loadingScreen')?.classList.add('is-hidden');
-      document.getElementById('app')?.classList.add('is-ready');
-      document.getElementById('app')?.setAttribute('aria-hidden', 'false');
+      // Show a "Begin Exam" button instead of auto-hiding the loading screen —
+      // fullscreen can only be requested as a direct result of a user click.
+      const stepsEl = document.querySelector('.load-steps');
+      if (stepsEl) {
+        stepsEl.innerHTML += `
+          <button id="beginExamBtn" class="nav-btn nav-btn-primary" style="margin-top:14px;width:100%;justify-content:center">
+            Begin Exam
+          </button>`;
+        document.getElementById('beginExamBtn')?.addEventListener('click', beginExam, { once: true });
+      } else {
+        beginExam(); // no loading-screen steps element available — just proceed
+      }
 
     } catch(err) {
       console.error('ExamEngine init error:', err);
@@ -166,6 +184,16 @@ const ExamEngine = (() => {
         `<div style="color:#dc3545;padding:12px">❌ ${err.message}<br><small>Please contact your invigilator.</small></div>`;
       else alert('Failed to load exam: ' + err.message);
     }
+  }
+
+  /** Called directly by the "Begin Exam" button click — this is the one place
+   *  allowed to request fullscreen, since it runs as a direct result of a
+   *  user gesture (browsers block requestFullscreen() otherwise). */
+  async function beginExam() {
+    await enforceFullscreen();
+    document.getElementById('loadingScreen')?.classList.add('is-hidden');
+    document.getElementById('app')?.classList.add('is-ready');
+    document.getElementById('app')?.setAttribute('aria-hidden', 'false');
   }
 
   /* ── SUBJECT TABS (JAMB structure) ─────────────────────────────── */
