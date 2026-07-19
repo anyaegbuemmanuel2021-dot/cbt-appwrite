@@ -15,6 +15,7 @@ const ExamEngine = (() => {
   let flags         = new Set();
   let currentIdx    = 0;           // index within activeSubject's question list
   let sessionId     = null;
+  let examSeed      = null;        // stable per-attempt seed so shuffle survives page reloads
   let isSubmitting  = false;
   let isActive      = false;
   let candidateName = 'Candidate';
@@ -72,13 +73,48 @@ const ExamEngine = (() => {
 
       allQuestions = qRes.documents.map(d => ({ id: d.$id, ...d, options: _normalizeOptions(d) }));
 
+      /* ── Step 3a: Resolve session + seed BEFORE shuffling ──
+         Look up an active session for this candidate+exam on the server
+         first (works even on a new browser/device), falling back to the
+         locally-remembered sessionId, before creating a new one. This is
+         what makes question/option order survive not just a refresh but
+         a genuine "resume on another device" scenario — the seed that
+         drives the shuffle lives on the session document, not just in
+         this browser's localStorage. */
+      _setLoading('Starting your session…');
+      let existingSessionDoc = null;
+      try {
+        const active = await DB.list(SD.COL.SESSIONS, [
+          SD.Q.equal('candidateId', user.$id),
+          SD.Q.equal('examId', examId),
+          SD.Q.equal('status', 'active'),
+        ], 1);
+        if (active.documents.length) existingSessionDoc = active.documents[0];
+      } catch (_) { /* query may fail if index missing; fall back below */ }
+
+      if (!existingSessionDoc) {
+        const localSessionId = localStorage.getItem('examSession_' + examId);
+        if (localSessionId) {
+          try { existingSessionDoc = await DB.get(SD.COL.SESSIONS, localSessionId); } catch (_) {}
+        }
+      }
+
+      examSeed = existingSessionDoc?.seed || localStorage.getItem('examSeed_' + examId);
+      if (!examSeed) {
+        examSeed = (crypto?.randomUUID?.() || (Date.now() + '_' + Math.random()));
+      }
+      localStorage.setItem('examSeed_' + examId, examSeed);
+
       _setLoading('Randomising & shuffling options…');
-      if (exam.randomizeQuestions !== false) allQuestions = _shuffle(allQuestions);
+      if (exam.randomizeQuestions !== false) allQuestions = _shuffle(allQuestions, _rng(examSeed + '_qorder'));
       if (exam.totalQuestions && allQuestions.length > exam.totalQuestions) {
         allQuestions = allQuestions.slice(0, exam.totalQuestions);
       }
       if (exam.shuffleOptions !== false) {
-        allQuestions = allQuestions.map(q => ({ ...q, shuffledOptions: _shuffleOptions(q.options) }));
+        allQuestions = allQuestions.map(q => {
+          const { options: shuffledOptions, correctAnswer } = _shuffleOptions(q.options, q.correctAnswer, _rng(examSeed + '_opt_' + q.id));
+          return { ...q, shuffledOptions, shuffledCorrectAnswer: correctAnswer };
+        });
       }
 
       subjectMap = {};
@@ -87,20 +123,18 @@ const ExamEngine = (() => {
         (subjectMap[subj] = subjectMap[subj] || []).push(q);
       });
 
-      /* ── Step 3: Restore saved answers ── */
+      /* ── Step 3b: Restore saved answers ── */
       const saved = localStorage.getItem('examAnswers_' + examId);
       if (saved) try { answers = JSON.parse(saved); } catch (_) {}
       allQuestions.forEach(q => { if (answers[q.id] === undefined) answers[q.id] = null; });
 
-      /* ── Step 4: Create or resume session ── */
-      _setLoading('Starting your session…');
-      const existingSession = localStorage.getItem('examSession_' + examId);
-      if (existingSession) {
-        sessionId = existingSession;
-        try {
-          const ses = await DB.get(SD.COL.SESSIONS, sessionId);
-          if (ses.answers) answers = { ...answers, ...JSON.parse(ses.answers) };
-        } catch (_) {}
+      /* ── Step 4: Create or resume session (order never regenerated after this point) ── */
+      if (existingSessionDoc) {
+        sessionId = existingSessionDoc.$id;
+        localStorage.setItem('examSession_' + examId, sessionId);
+        if (existingSessionDoc.answers) {
+          try { answers = { ...answers, ...JSON.parse(existingSessionDoc.answers) }; } catch (_) {}
+        }
       } else {
         const ses = await DB.create(SD.COL.SESSIONS, {
           candidateId: user.$id, examId,
@@ -110,6 +144,7 @@ const ExamEngine = (() => {
           answers:     JSON.stringify({}),
           violations:  0,
           questionIds: JSON.stringify(allQuestions.map(q => q.id)),
+          seed:        examSeed,
         });
         sessionId = ses.$id;
         localStorage.setItem('examSession_' + examId, sessionId);
@@ -416,7 +451,7 @@ const ExamEngine = (() => {
 
       const result = await _gradeExam(sub.$id);
 
-      ['examAnswers_', 'examTimeLeft_', 'examSession_'].forEach(k => localStorage.removeItem(k + exam.id));
+      ['examAnswers_', 'examTimeLeft_', 'examSession_', 'examSeed_'].forEach(k => localStorage.removeItem(k + exam.id));
       localStorage.removeItem('currentExamId');
 
       const answered   = Object.values(answers).filter(Boolean).length;
@@ -448,11 +483,25 @@ const ExamEngine = (() => {
   async function _gradeExam(submissionId) {
     let correct = 0;
     const breakdown = {};
+    const debug = localStorage.getItem('sd_debug_grading') === '1';
     allQuestions.forEach(q => {
-      const studentAns = answers[q.id] || 'NOT_ANSWERED';
-      const isCorrect  = studentAns === q.correctAnswer;
+      const studentAns    = answers[q.id] || 'NOT_ANSWERED';
+      const correctLetter = q.shuffledCorrectAnswer || q.correctAnswer;
+      const isCorrect     = studentAns === correctLetter;
       if (isCorrect) correct++;
-      breakdown[q.id] = { questionText: q.text, studentAnswer: studentAns, correctAnswer: q.correctAnswer, isCorrect, subject: q.subject || '' };
+      breakdown[q.id] = { questionText: q.text, studentAnswer: studentAns, correctAnswer: correctLetter, isCorrect, subject: q.subject || '' };
+      if (debug) {
+        console.log('[grading]', {
+          questionId: q.id,
+          originalOptions: q.options,
+          shuffledOptions: q.shuffledOptions,
+          originalCorrectAnswer: q.correctAnswer,
+          shuffledCorrectAnswer: q.shuffledCorrectAnswer,
+          studentSelected: studentAns,
+          comparedAgainst: correctLetter,
+          isCorrect,
+        });
+      }
     });
 
     const total      = allQuestions.length;
@@ -496,18 +545,42 @@ const ExamEngine = (() => {
     }
     return [];
   }
-  function _shuffle(arr) {
+  function _hashSeed(str) {
+    // djb2 string hash -> 32-bit unsigned int, used to seed the PRNG
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+    return h >>> 0;
+  }
+  function _rng(seedStr) {
+    // mulberry32 — deterministic PRNG so the same seed always reproduces
+    // the same shuffle order. Used instead of Math.random() so that a
+    // page refresh / resume does not re-shuffle questions or options
+    // out from under answers the candidate already selected.
+    let a = _hashSeed(String(seedStr));
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function _shuffle(arr, rng) {
+    const rand = rng || Math.random;
     const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
     return a;
   }
-  function _shuffleOptions(options) {
-    if (!options || typeof options !== 'object') return options;
-    const entries = _shuffle(Object.entries(options));
+  function _shuffleOptions(options, correctLetter, rng) {
+    if (!options || typeof options !== 'object') return { options, correctAnswer: correctLetter };
+    const entries = _shuffle(Object.entries(options), rng);
     const letters = ['A', 'B', 'C', 'D', 'E'];
     const result = {};
-    entries.forEach(([, val], i) => { result[letters[i]] = val; });
-    return result;
+    let newCorrectLetter = correctLetter;
+    entries.forEach(([origLetter, val], i) => {
+      result[letters[i]] = val;
+      if (origLetter === correctLetter) newCorrectLetter = letters[i];
+    });
+    return { options: result, correctAnswer: newCorrectLetter };
   }
   function _normalizeOptions(d) {
     let opts = d.options;

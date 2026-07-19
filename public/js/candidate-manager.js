@@ -28,7 +28,8 @@ const CandidateManager = (() => {
       if (activeCentre !== 'all') queries.push(SD.Q.equal('centreId', activeCentre));
       if (activeStatus !== 'all') queries.push(SD.Q.equal('status', activeStatus));
 
-      const res = await SD.databases.listDocuments(SD.DB_ID, SD.COL.CANDIDATES, queries);
+      const res = await SD.tablesDB.listRows({ databaseId: SD.DB_ID, tableId: SD.COL.CANDIDATES, queries });
+      res.documents = res.rows; // keep old field name working for the rest of this file
       totalCount    = res.total;
       allCandidates = res.documents.map(d => ({ id: d.$id, ...d }));
 

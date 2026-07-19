@@ -40,7 +40,7 @@ try {
  * ══════════════════════════════════════════════════════════════ */
 const CONFIG = {
   ENDPOINT:   'https://fra.cloud.appwrite.io/v1',
-  PROJECT_ID: '6a39aa7e0036a36c3b71',
+  PROJECT_ID: '6a5cab36001397f233a6',
   DB_ID:      'cbt-main',
   DB_NAME:    'CBT Main Database',
   API_KEY:    process.env.APPWRITE_API_KEY || '',
@@ -713,7 +713,7 @@ function printBanner() {
   console.log(`
 ${C.bold}${C.blue}╔══════════════════════════════════════════════════════════╗
 ║         SOFTLY DIGITAL V3 — Appwrite Setup CLI           ║
-║         Project: 6a39aa7e0036a36c3b71                    ║
+║         Project: 16a5cab36001397f233a6                   ║
 ╚══════════════════════════════════════════════════════════╝${C.reset}
 `);
 }

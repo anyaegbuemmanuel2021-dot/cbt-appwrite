@@ -5,7 +5,7 @@
  *
  * Usage:
  *   npm install node-appwrite
- *   node setup-appwrite.js
+ *   APPWRITE_API_KEY=your-key node setup-appwrite.js
  *
  * Set your credentials below or as env vars:
  *   APPWRITE_ENDPOINT  APPWRITE_PROJECT_ID  APPWRITE_API_KEY
@@ -13,11 +13,15 @@
 
 const sdk = require('node-appwrite');
 
-const ENDPOINT   = 'https://fra.cloud.appwrite.io/v1';
-const PROJECT_ID = '6a39aa7e0036a36c3b71';
-const API_KEY    = process.env.APPWRITE_API_KEY    || 'YOUR_SERVER_API_KEY_HERE';
+const ENDPOINT   = process.env.APPWRITE_ENDPOINT   || 'https://fra.cloud.appwrite.io/v1';
+const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '6a5cab36001397f233a6'; // cbt-system
+const API_KEY    = process.env.APPWRITE_API_KEY    || '';
+const DB_ID      = 'cbt-main';
 
-const DB_ID = 'cbt-main';
+if (!API_KEY) {
+  console.error('\n❌ Missing APPWRITE_API_KEY. Set it as an environment variable before running this script.\n');
+  process.exit(1);
+}
 
 const client = new sdk.Client()
   .setEndpoint(ENDPOINT)
@@ -61,6 +65,8 @@ async function idx(dbId, colId, indexId, type, attrs, orders) {
 /* ── MAIN ─────────────────────────────────────────────────────────── */
 async function main() {
   console.log('\n🚀 SOFTLY DIGITAL V3 — Appwrite Setup\n');
+  console.log(`   Project: ${PROJECT_ID}`);
+  console.log(`   Endpoint: ${ENDPOINT}\n`);
 
   // ── 1. Database ────────────────────────────────────────────────────
   console.log('📦 Creating database…');
@@ -213,11 +219,13 @@ async function main() {
   await attr('string',  DB_ID, 'exam_sessions', 'status',      { size:20, default:'active' });
   await attr('string',  DB_ID, 'exam_sessions', 'answers',     { size:50000 }); // JSON
   await attr('string',  DB_ID, 'exam_sessions', 'questionIds', { size:10000 }); // JSON
+  await attr('string',  DB_ID, 'exam_sessions', 'seed',        { size:100 }); // shuffle seed, for cross-device resume integrity
   await attr('integer', DB_ID, 'exam_sessions', 'violations',  { default:0 });
   await attr('string',  DB_ID, 'exam_sessions', 'lastSynced',  { size:30 });
   await idx(DB_ID, 'exam_sessions', 'idx_candidateId', 'key', ['candidateId'], ['ASC']);
   await idx(DB_ID, 'exam_sessions', 'idx_examId',      'key', ['examId'],      ['ASC']);
   await idx(DB_ID, 'exam_sessions', 'idx_status',      'key', ['status'],      ['ASC']);
+  await idx(DB_ID, 'exam_sessions', 'idx_resume_lookup', 'key', ['candidateId', 'examId', 'status'], ['ASC', 'ASC', 'ASC']);
 
   // SUBMISSIONS
   console.log('\n📤 Creating collection: submissions');

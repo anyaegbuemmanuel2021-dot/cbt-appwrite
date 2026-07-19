@@ -3,14 +3,17 @@
   "version": "3.0.0",
   "description": "SOFTLY DIGITAL V3 Enterprise CBT – Appwrite + Cloudinary",
   "scripts": {
-    "setup":     "cd scripts && npm install && node setup-appwrite.js",
-    "seed":      "cd scripts && node seed-data.js",
-    "dev":       "npx serve public -p 3000",
-    "build":     "echo 'Static site — no build needed. Deploy /public folder.'",
+    "setup": "cd scripts && npm install && node setup-appwrite.js",
+    "seed": "cd scripts && node seed-data.js",
+    "dev": "npx serve public -p 3000",
+    "build": "echo 'Static site — no build needed. Deploy /public folder.'",
     "deploy:netlify": "netlify deploy --prod --dir=public",
-    "deploy:vercel":  "vercel --prod"
+    "deploy:vercel": "vercel --prod"
   },
   "devDependencies": {
     "serve": "^14.2.3"
+  },
+  "dependencies": {
+    "node-appwrite": "^27.0.0"
   }
 }

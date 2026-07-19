@@ -9,7 +9,7 @@
 window.APP_ENV = {
   /* Appwrite */
   APPWRITE_ENDPOINT:    'https://fra.cloud.appwrite.io/v1',
-  APPWRITE_PROJECT_ID:  '6a39aa7e0036a36c3b71',
+  APPWRITE_PROJECT_ID:  '6a5cab36001397f233a6',
 
   /* Cloudinary — unsigned upload only (api_secret stays server-side) */
   CLOUDINARY_CLOUD:     'dfppqz2tk',
@@ -18,9 +18,16 @@ window.APP_ENV = {
   CLOUDINARY_FOLDER:    'softly-digital/v3',
 };
 
-/* ── Appwrite SDK (loaded via CDN) ──────────────────────────────── */
+/* ── Appwrite SDK (loaded via CDN) ───────────────────────────────────
+ * NOTE: cbt-main is a TablesDB-type database (created via the newer
+ * Appwrite Tables API), NOT a classic Collections/Documents database.
+ * We must use the TablesDB service (listRows/createRow/etc.), not the
+ * classic Databases service (listDocuments/createDocument/etc.) — the
+ * classic endpoints simply don't exist for this database and were
+ * causing every call to be rejected before CORS headers could attach.
+ * ──────────────────────────────────────────────────────────────────── */
 const {
-  Client, Account, Databases, Storage, Query, ID, Permission, Role,
+  Client, Account, TablesDB, Storage, Query, ID, Permission, Role,
 } = Appwrite;
 
 const _client = new Client()
@@ -28,7 +35,7 @@ const _client = new Client()
   .setProject(window.APP_ENV.APPWRITE_PROJECT_ID);
 
 const _account   = new Account(_client);
-const _databases = new Databases(_client);
+const _tablesDB  = new TablesDB(_client);
 
 /* ── Database ID & Collection IDs ───────────────────────────────── */
 const DB_ID = 'cbt-main';
@@ -55,7 +62,7 @@ const COL = {
 window.SD = {
   client:    _client,
   account:   _account,
-  databases: _databases,
+  tablesDB:  _tablesDB,
   DB_ID,
   COL,
   Q:   Query,
@@ -76,7 +83,7 @@ window.SD = {
 };
 
 /* ── Convenience aliases ────────────────────────────────────────── */
-window.db      = _databases;   // legacy alias
+window.db      = _tablesDB;   // legacy alias (now points at TablesDB)
 window.account = _account;
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -84,38 +91,39 @@ window.account = _account;
  * ═══════════════════════════════════════════════════════════════════ */
 window.DB = {
 
-  /** List documents with optional Query array */
+  /** List rows (documents) with optional Query array */
   list(col, queries = [], limit = 100) {
     const q = [...queries, Query.limit(limit)];
-    return _databases.listDocuments(DB_ID, col, q);
+    return _tablesDB.listRows({ databaseId: DB_ID, tableId: col, queries: q })
+      .then(res => ({ ...res, documents: res.rows })); // keep .documents alias for old call sites
   },
 
   /** Cursor-paginated list — returns { documents, total, cursor } */
   async page(col, queries = [], pageSize = 50, cursor = null) {
     const q = [...queries, Query.limit(pageSize)];
     if (cursor) q.push(Query.cursorAfter(cursor));
-    const res = await _databases.listDocuments(DB_ID, col, q);
+    const res = await _tablesDB.listRows({ databaseId: DB_ID, tableId: col, queries: q });
     return {
-      documents: res.documents,
+      documents: res.rows,
       total:     res.total,
-      cursor:    res.documents.length
-        ? res.documents[res.documents.length - 1].$id
+      cursor:    res.rows.length
+        ? res.rows[res.rows.length - 1].$id
         : null,
     };
   },
 
-  /** Get single document */
+  /** Get single row (document) */
   get(col, id) {
-    return _databases.getDocument(DB_ID, col, id);
+    return _tablesDB.getRow({ databaseId: DB_ID, tableId: col, rowId: id });
   },
 
-  /** Create document — auto-generates ID if none passed */
+  /** Create row (document) — auto-generates ID if none passed */
   create(col, data, id = ID.unique(), perms = []) {
     // Strip undefined values — Appwrite rejects them
     const clean = Object.fromEntries(
       Object.entries(data).filter(([, v]) => v !== undefined)
     );
-    return _databases.createDocument(DB_ID, col, id, clean, perms);
+    return _tablesDB.createRow({ databaseId: DB_ID, tableId: col, rowId: id, data: clean, permissions: perms });
   },
 
   /** Partial update */
@@ -123,12 +131,12 @@ window.DB = {
     const clean = Object.fromEntries(
       Object.entries(data).filter(([, v]) => v !== undefined)
     );
-    return _databases.updateDocument(DB_ID, col, id, clean);
+    return _tablesDB.updateRow({ databaseId: DB_ID, tableId: col, rowId: id, data: clean });
   },
 
-  /** Delete document */
+  /** Delete row (document) */
   delete(col, id) {
-    return _databases.deleteDocument(DB_ID, col, id);
+    return _tablesDB.deleteRow({ databaseId: DB_ID, tableId: col, rowId: id });
   },
 };
 

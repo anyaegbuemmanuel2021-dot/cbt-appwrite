@@ -3,14 +3,20 @@
  * Creates sample subjects, topics, centres, and one test exam.
  * Run AFTER setup-appwrite.js
  *
- * Usage: node seed-data.js
+ * Usage:
+ *   APPWRITE_API_KEY=your-key node seed-data.js
  */
 const sdk = require('node-appwrite');
 
-const ENDPOINT   = 'https://fra.cloud.appwrite.io/v1';
-const PROJECT_ID = '6a39aa7e0036a36c3b71';
-const API_KEY    = process.env.APPWRITE_API_KEY    || 'YOUR_SERVER_API_KEY_HERE';
+const ENDPOINT   = process.env.APPWRITE_ENDPOINT   || 'https://fra.cloud.appwrite.io/v1';
+const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '6a5cab36001397f233a6'; // cbt-system
+const API_KEY    = process.env.APPWRITE_API_KEY    || '';
 const DB_ID      = 'cbt-main';
+
+if (!API_KEY) {
+  console.error('\n❌ Missing APPWRITE_API_KEY. Set it as an environment variable before running this script.\n');
+  process.exit(1);
+}
 
 const client    = new sdk.Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new sdk.Databases(client);
@@ -26,8 +32,42 @@ async function create(col, data, id) {
   return databases.createDocument(DB_ID, col, id || ID.unique(), data);
 }
 
+// ── PERMISSIONS FIX ───────────────────────────────────────────────
+// candidate-login.html (and similar public pages) query these collections
+// BEFORE anyone logs in. setup-appwrite.js originally granted read only to
+// Role.users() (logged-in users), which blocks guests with a 403 that shows
+// up in the browser as a misleading CORS error. This grants guest READ
+// access to public-facing collections while keeping write access restricted
+// to authenticated users.
+const PUBLIC_READ_COLLECTIONS = ['centres', 'subjects'];
+
+async function fixPublicReadPermissions() {
+  console.log('🔐 Fixing public-read permissions on guest-facing collections…');
+  for (const colId of PUBLIC_READ_COLLECTIONS) {
+    await safe(async () => {
+      const col = await databases.getCollection(DB_ID, colId);
+      const perms = new Set(col.$permissions || []);
+      perms.add(sdk.Permission.read(sdk.Role.any()));         // allow guests to read
+      perms.add(sdk.Permission.create(sdk.Role.users()));
+      perms.add(sdk.Permission.update(sdk.Role.users()));
+      perms.add(sdk.Permission.delete(sdk.Role.users()));
+      return databases.updateCollection(
+        DB_ID,
+        colId,
+        col.name,
+        Array.from(perms),
+        col.documentSecurity,
+        col.enabled
+      );
+    }, `Permissions: ${colId} (guest read enabled)`);
+  }
+}
+
 async function main() {
   console.log('\n🌱 Seeding SOFTLY DIGITAL V3 sample data…\n');
+  console.log(`   Project: ${PROJECT_ID}\n`);
+
+  await fixPublicReadPermissions();
 
   // ── SUBJECTS ─────────────────────────────────────────────────────
   console.log('📚 Creating subjects…');

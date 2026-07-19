@@ -804,7 +804,8 @@ const ResultManager = (() => {
       const examFilter = document.getElementById('resExamFilter')?.value;
       const queries    = [SD.Q.orderDesc('$createdAt'), SD.Q.limit(200)];
       if (examFilter) queries.push(SD.Q.equal('examId', examFilter));
-      const res = await SD.databases.listDocuments(SD.DB_ID, SD.COL.RESULTS, queries);
+      const res = await SD.tablesDB.listRows({ databaseId: SD.DB_ID, tableId: SD.COL.RESULTS, queries });
+      res.documents = res.rows; // keep old field name working for the rest of this file
       allResults = res.documents.map(d => ({ id: d.$id, ...d }));
       _renderTable(allResults);
     } catch(e) { tbody.innerHTML = `<tr><td colspan="7" style="color:#dc3545">${e.message}</td></tr>`; }

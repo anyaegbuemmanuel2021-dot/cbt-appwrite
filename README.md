@@ -24,7 +24,7 @@ npm install
 Edit `scripts/setup-appwrite.js` lines 10-12:
 ```js
 const ENDPOINT   = 'https://fra.cloud.appwrite.io/v1';
-const PROJECT_ID = '6a39aa7e0036a36c3b71';   // ← your Appwrite project ID
+const PROJECT_ID = '6a5cab36001397f233a6';   // ← your Appwrite project ID
 const API_KEY    = 'your-server-api-key';      // ← from Appwrite Console → API Keys
 ```
 
@@ -32,7 +32,7 @@ Edit `public/js/appwrite-config.js` lines 10-16:
 ```js
 window.APP_ENV = {
   APPWRITE_ENDPOINT:   'https://fra.cloud.appwrite.io/v1',
-  APPWRITE_PROJECT_ID: '6a39aa7e0036a36c3b71',  // ← same project ID
+  APPWRITE_PROJECT_ID: '6a5cab36001397f233a6',  // ← same project ID
   CLOUDINARY_CLOUD:    'your_cloud_name',         // ← from cloudinary.com dashboard
   CLOUDINARY_PRESET:   'cbt_softly_unsigned',     // ← create this preset in Cloudinary
   CLOUDINARY_FOLDER:   'softly-digital/v3',

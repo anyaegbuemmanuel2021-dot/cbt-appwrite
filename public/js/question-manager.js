@@ -28,7 +28,8 @@ const QuestionManager = (() => {
       if (subj) queries.push(SD.Q.equal('subjectId', subj));
       if (diff) queries.push(SD.Q.equal('difficulty', diff));
 
-      const res = await SD.databases.listDocuments(SD.DB_ID, SD.COL.QUESTIONS, queries);
+      const res = await SD.tablesDB.listRows({ databaseId: SD.DB_ID, tableId: SD.COL.QUESTIONS, queries });
+      res.documents = res.rows; // keep old field name working for the rest of this file
       totalCount   = res.total;
       allQuestions = res.documents.map(d => ({ id: d.$id, ...d }));
       renderTable(allQuestions);
