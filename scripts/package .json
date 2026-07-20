@@ -15,7 +15,7 @@
     "start":   "node cli.js"
   },
   "dependencies": {
-    "node-appwrite": "^27.0.0",
+    "node-appwrite": "^14.1.0",
     "readline":      "*"
   },
   "engines": {
