@@ -491,7 +491,7 @@
         <h2 id="centreModalTitle">Add Centre</h2>
         <button class="modal-close" onclick="closeModal('centreModal')">✕</button>
       </div>
-      <form id="centreForm" class="modal-form" onsubmit="CentreManager.save(event)">
+      <form id="centreForm" class="modal-form">
         <div class="form-row">
           <div class="form-group"><label>Centre Code *</label><input type="text" name="code" placeholder="CTR001" required></div>
           <div class="form-group"><label>Centre Name *</label><input type="text" name="name" placeholder="Centre Name" required></div>
@@ -520,7 +520,7 @@
         <h2 id="examModalTitle">Create Examination</h2>
         <button class="modal-close" onclick="closeModal('examModal')">✕</button>
       </div>
-      <form id="examForm" class="modal-form" onsubmit="ExamManager.save(event)">
+      <form id="examForm" class="modal-form">
         <div class="form-row">
           <div class="form-group"><label>Exam Name *</label><input type="text" name="name" placeholder="e.g. JAMB Biology 2025" required></div>
           <div class="form-group"><label>Subject *</label><select name="subjectId" required><option value="">Select Subject</option></select></div>
@@ -558,7 +558,7 @@
         <h2 id="userModalTitle">Add User</h2>
         <button class="modal-close" onclick="closeModal('userModal')">✕</button>
       </div>
-      <form id="userForm" class="modal-form" onsubmit="UserManager.save(event)">
+      <form id="userForm" class="modal-form">
         <div class="form-row">
           <div class="form-group"><label>Full Name *</label><input type="text" name="fullName" required></div>
           <div class="form-group"><label>Email *</label><input type="email" name="email" required></div>
@@ -633,7 +633,7 @@
         <h2 id="questionModalTitle">Add Question</h2>
         <button class="modal-close" onclick="closeModal('questionModal')">✕</button>
       </div>
-      <form id="questionForm" class="modal-form" onsubmit="QuestionManager.save(event)">
+      <form id="questionForm" class="modal-form">
         <div class="form-group"><label>Question Text *</label><textarea name="text" rows="3" required placeholder="Type the question text here…"></textarea></div>
         <div class="form-group">
           <label>Question Image <span class="field-hint">(optional diagram/image)</span></label>
