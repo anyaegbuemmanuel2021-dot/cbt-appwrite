@@ -154,30 +154,52 @@ const ExamEngine = (() => {
       await _loadSecurityConfig();
       if (window.AntiCheat) AntiCheat.init({ sessionId, examId, candidateId: user.$id });
 
-      /* ── Step 6: Timer ── */
-      const savedTime = localStorage.getItem('examTimeLeft_' + examId);
-      const timeLeft  = savedTime ? parseInt(savedTime) : (exam.duration || 60) * 60;
-      ExamTimer.start(timeLeft, examId, () => autoSubmit('timeout'));
-
-      isActive = true;
-      await enforceFullscreen();
-      ExamSync.start(examId, sessionId, answers);
-
       activeSubject = Object.keys(subjectMap)[0];
       _renderSubjectList();
       renderQuestion(0);
       updatePalette();
       updateProgress();
 
-      /* ── Reveal app, hide loading screen ── */
-      document.getElementById('loadingScreen')?.classList.add('is-hidden');
-      const app = document.getElementById('app');
-      if (app) { app.classList.add('is-ready'); app.setAttribute('aria-hidden', 'false'); }
+      /* ── Step 6: Everything is ready — wait for a real click before
+         requesting fullscreen. Browsers refuse fullscreen requests that
+         aren't triggered directly by a user gesture (click/keypress);
+         calling it automatically here would silently fail every time. ── */
+      _setLoading('Ready — click below to begin.');
+      document.querySelector('.loading-ring')?.style.setProperty('display', 'none');
+      document.querySelector('.skeleton-row')?.style.setProperty('display', 'none');
+      const beginBtn = document.getElementById('beginExamBtn');
+      if (beginBtn) {
+        beginBtn.style.display = 'inline-block';
+        beginBtn.addEventListener('click', async () => {
+          beginBtn.disabled = true;
+          await enforceFullscreen();     // real user gesture — this will succeed
+          _startExamProper();
+        }, { once: true });
+      } else {
+        // Fallback: no button present in this HTML build — start immediately
+        // without fullscreen (better than blocking the exam entirely).
+        _startExamProper();
+      }
 
     } catch (err) {
       console.error('ExamEngine init error:', err);
       _loadError(err.message + ' — please contact your invigilator.');
     }
+  }
+
+  function _startExamProper() {
+    /* ── Timer ── */
+    const savedTime = localStorage.getItem('examTimeLeft_' + exam.id);
+    const timeLeft  = savedTime ? parseInt(savedTime) : (exam.duration || 60) * 60;
+    ExamTimer.start(timeLeft, exam.id, () => autoSubmit('timeout'));
+
+    isActive = true;
+    ExamSync.start(exam.id, sessionId, answers);
+
+    /* ── Reveal app, hide loading screen ── */
+    document.getElementById('loadingScreen')?.classList.add('is-hidden');
+    const app = document.getElementById('app');
+    if (app) { app.classList.add('is-ready'); app.setAttribute('aria-hidden', 'false'); }
   }
 
   function _setLoading(msg) { _setEl('loadingText', msg); }
