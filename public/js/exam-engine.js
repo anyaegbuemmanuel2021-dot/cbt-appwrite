@@ -489,7 +489,7 @@ const ExamEngine = (() => {
       let t = 5;
       const iv = setInterval(() => {
         t--; _setEl('succTimer', t);
-        if (t <= 0) { clearInterval(iv); location.href = `results.html?resultId=${result.id}`; }
+        if (t <= 0) { clearInterval(iv); location.href = `results.html?resultId=${result.$id}`; }
       }, 1000);
       document.getElementById('printResultBtn')?.addEventListener('click', () => window.print());
 
