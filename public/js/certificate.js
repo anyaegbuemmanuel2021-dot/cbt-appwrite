@@ -5,6 +5,15 @@
 const CertificateManager = (() => {
   'use strict';
 
+  // Cloudinary opens images inline by default. Inserting fl_attachment
+  // into the delivery URL tells Cloudinary to respond with
+  // Content-Disposition: attachment, so the browser downloads the file
+  // instead of just displaying it in a new tab.
+  function _forceDownloadUrl(url) {
+    if (!url || !url.includes('/upload/')) return url;
+    return url.replace('/upload/', '/upload/fl_attachment/');
+  }
+
   async function download() {
     const params   = new URLSearchParams(location.search);
     const resultId = params.get('resultId');
@@ -19,7 +28,7 @@ const CertificateManager = (() => {
       const existing = await DB.list(SD.COL.CERTIFICATES, [SD.Q.equal('resultId', resultId)], 1);
       if (existing.total > 0) {
         const cert = existing.documents[0];
-        if (cert.pdfUrl) window.open(cert.pdfUrl, '_blank');
+        if (cert.pdfUrl) window.open(_forceDownloadUrl(cert.pdfUrl), '_blank');
         _showQr(cert.qrCode);
         if (btn) { btn.disabled = false; btn.textContent = '📜 Download Certificate'; }
         return;
@@ -63,7 +72,7 @@ const CertificateManager = (() => {
 
       await audit('CERTIFICATE_ISSUED', { resultId, candidateId: user.$id, score: result.percentage });
 
-      window.open(certUrl, '_blank');
+      window.open(_forceDownloadUrl(certUrl), '_blank');
       _showQr(qrUrl);
       Toast.show('Certificate generated and saved! 🏆', 'success');
     } catch (e) {
