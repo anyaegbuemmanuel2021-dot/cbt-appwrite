@@ -138,7 +138,6 @@ const ExamEngine = (() => {
       } else {
         const ses = await DB.create(SD.COL.SESSIONS, {
           candidateId: user.$id, examId,
-          duration:    exam.duration || 60,
           startTime:   new Date().toISOString(),
           status:      'active',
           answers:     JSON.stringify({}),
