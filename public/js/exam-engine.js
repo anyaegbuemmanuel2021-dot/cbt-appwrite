@@ -470,7 +470,7 @@ const ExamEngine = (() => {
 
       await DB.update(SD.COL.SESSIONS, sessionId, { status: 'submitted', submittedAt: new Date().toISOString() });
 
-      const result = await _gradeExam(sub.$id);
+      const result = await _gradeExam(sub.$id, timeTaken);
 
       ['examAnswers_', 'examTimeLeft_', 'examSession_', 'examSeed_'].forEach(k => localStorage.removeItem(k + exam.id));
       localStorage.removeItem('currentExamId');
@@ -501,12 +501,14 @@ const ExamEngine = (() => {
   }
 
   /* ── GRADE EXAM ──────────────────────────────────────────────────── */
-  async function _gradeExam(submissionId) {
+  async function _gradeExam(submissionId, timeTaken) {
     let correct = 0;
+    let skipped = 0;
     const breakdown = {};
     const debug = localStorage.getItem('sd_debug_grading') === '1';
     allQuestions.forEach(q => {
       const studentAns    = answers[q.id] || 'NOT_ANSWERED';
+      if (studentAns === 'NOT_ANSWERED') skipped++;
       const correctLetter = q.shuffledCorrectAnswer || q.correctAnswer;
       const isCorrect     = studentAns === correctLetter;
       if (isCorrect) correct++;
@@ -537,6 +539,7 @@ const ExamEngine = (() => {
       candidateId: user.$id, candidateName,
       examId: exam.id, examName: exam.name, submissionId,
       correctAnswers: correct, totalQuestions: total, percentage, grade, passed,
+      skipped, timeTaken: timeTaken || 0,
       answerBreakdown: JSON.stringify(breakdown),
       createdAt: new Date().toISOString(),
     });
