@@ -58,6 +58,18 @@ const COL = {
   SETTINGS:      'system_settings',
 };
 
+/* ── Shared password helper ──────────────────────────────────────────
+ * Appwrite requires passwords to be 8+ characters. Candidate temp
+ * passwords default to their candidateId, which can be shorter than
+ * that. Pad deterministically so creation (candidate-manager.js) and
+ * login (auth.js) always derive the exact same password for a given
+ * candidateId — used ONLY as the initial/default password.
+ * ──────────────────────────────────────────────────────────────────── */
+window.padPassword = function padPassword(candidateId) {
+  const id = String(candidateId || '');
+  return id.length >= 8 ? id : id.padEnd(8, '0');
+};
+
 /* ── Global namespace ───────────────────────────────────────────── */
 window.SD = {
   client:    _client,

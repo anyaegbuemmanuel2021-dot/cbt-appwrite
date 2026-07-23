@@ -158,8 +158,17 @@ const AuthManager = (() => {
 
       // FIX: clear stale session before logging in — this is what was
       // silently breaking login on repeated attempts.
+      // If they're logging in with the default password (their candidateId,
+      // matching the "Default = Candidate ID" login hint), pad it exactly
+      // the same way candidate-manager.js padded it when the account was
+      // created — Appwrite requires 8+ char passwords. A custom/changed
+      // password is sent through unchanged.
+      const loginPassword = (password.toUpperCase() === String(candDoc.candidateId||'').toUpperCase())
+        ? window.padPassword(candDoc.candidateId)
+        : password;
+
       await _clearExistingSession();
-      await AUTH.login(candDoc.email, password);
+      await AUTH.login(candDoc.email, loginPassword);
 
       // FIX: confirm session actually took before navigating away
       const user = await _getCurrentUserWithRetry();

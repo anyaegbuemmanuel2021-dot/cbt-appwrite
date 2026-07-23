@@ -174,25 +174,44 @@ const CandidateManager = (() => {
         if (byEmail.total > 0) throw new Error(`Email "${email}" is already registered.`);
 
         // ── Appwrite account creation ─────────────────────────────────
-        // Password defaults to candidateId (admin can reset later)
-        const tempPassword = candidateId;
-        const newUser = await _account.create(SD.ID.unique(), email, tempPassword, fullName);
-        const uid = newUser.$id;
+        // Password defaults to candidateId (admin can reset later).
+        // Appwrite requires 8+ characters — pad short candidate IDs so
+        // account creation doesn't silently fail for short IDs.
+        const tempPassword = _padPassword(candidateId);
+
+        let newUser, uid;
+        try {
+          newUser = await _account.create(SD.ID.unique(), email, tempPassword, fullName);
+          uid = newUser.$id;
+        } catch (accErr) {
+          console.error('[CandidateManager] Auth account creation failed:', accErr);
+          throw new Error(`Could not create login account: ${accErr.message} (code: ${accErr.code||accErr.type||'?'})`);
+        }
 
         // ── Upload passport image if provided ─────────────────────────
         let passportImageUrl = '';
-        if (imageFile) {
-          passportImageUrl = await CLOUD.upload(imageFile, 'candidates', `passport_${uid}`);
+        try {
+          if (imageFile) {
+            passportImageUrl = await CLOUD.upload(imageFile, 'candidates', `passport_${uid}`);
+          }
+        } catch (imgErr) {
+          console.error('[CandidateManager] Passport upload failed:', imgErr);
+          // Non-fatal — continue without the image rather than losing the whole candidate.
         }
 
         const centre = centresCache.find(x => x.$id === centreId);
-        await DB.create(SD.COL.CANDIDATES, {
-          candidateId, fullName, email, phone: phone||'',
-          centreId, centreName: centre?.name||'',
-          passportImageUrl, status: 'active',
-          examIds: [],
-          createdAt: new Date().toISOString(),
-        }, uid);
+        try {
+          await DB.create(SD.COL.CANDIDATES, {
+            candidateId, fullName, email, phone: phone||'',
+            centreId, centreName: centre?.name||'',
+            passportImageUrl, status: 'active',
+            examIds: [],
+            createdAt: new Date().toISOString(),
+          }, uid);
+        } catch (dbErr) {
+          console.error('[CandidateManager] Database row creation failed (auth account WAS created, uid=' + uid + '):', dbErr);
+          throw new Error(`Login account was created but the candidate record failed to save: ${dbErr.message} (code: ${dbErr.code||dbErr.type||'?'}). This candidate ID/email may now be stuck — contact the developer with uid ${uid}.`);
+        }
 
         await audit('CANDIDATE_CREATED', { candidateId, centreId });
         _toast('Candidate created successfully!', 'success');
@@ -271,15 +290,20 @@ const CandidateManager = (() => {
         if (existing.total > 0) { skipped++; continue; }
 
         try {
-          const newUser = await _account.create(SD.ID.unique(), email, candidateId, fullName);
-          await DB.create(SD.COL.CANDIDATES, {
-            candidateId, fullName, email, phone,
-            centreId, centreName: centre?.name||'',
-            passportImageUrl: '', status: 'active', examIds: [],
-            createdAt: new Date().toISOString(),
-          }, newUser.$id);
-          added++;
-        } catch(e) { errors.push(`${candidateId}: ${e.message}`); skipped++; }
+          const newUser = await _account.create(SD.ID.unique(), email, _padPassword(candidateId), fullName);
+          try {
+            await DB.create(SD.COL.CANDIDATES, {
+              candidateId, fullName, email, phone,
+              centreId, centreName: centre?.name||'',
+              passportImageUrl: '', status: 'active', examIds: [],
+              createdAt: new Date().toISOString(),
+            }, newUser.$id);
+            added++;
+          } catch (dbErr) {
+            console.error(`[CandidateManager] Row creation failed for ${candidateId} (auth uid ${newUser.$id} was created):`, dbErr);
+            throw new Error(`record save failed after account was created (uid ${newUser.$id}): ${dbErr.message}`);
+          }
+        } catch(e) { console.error(`[CandidateManager] Import row failed for ${candidateId}:`, e); errors.push(`${candidateId}: ${e.message}`); skipped++; }
 
         if(statusEl) statusEl.textContent = `Importing… ${added} added, ${skipped} skipped`;
       }
@@ -295,6 +319,9 @@ const CandidateManager = (() => {
   }
 
   /* ── helpers ──────────────────────────────────────────────────────── */
+  // See window.padPassword in appwrite-config.js — shared with auth.js so
+  // creation and login always agree on the default candidate password.
+  const _padPassword = window.padPassword;
   function _esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function _toast(msg, type='info') {
     if(window.Toast) Toast.show(msg, type);
