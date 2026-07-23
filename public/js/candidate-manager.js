@@ -146,7 +146,8 @@ const CandidateManager = (() => {
   }
 
   /* ── SAVE (create or update) — duplicate guard ───────────────────── */
-  async function save() {
+  async function save(event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
     const form       = document.getElementById('candidateForm');
     const fullName   = form.fullName?.value.trim();
     const email      = form.email?.value.trim().toLowerCase();

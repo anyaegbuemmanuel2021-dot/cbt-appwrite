@@ -248,10 +248,39 @@
 .an-chart-card.large{grid-column:1/-1}
 .an-chart-card h3{font-size:.9rem;font-weight:700;color:var(--dark);margin-bottom:14px}
 
+/* ── RIGHT-HAND SCROLL RAIL ──────────────────────────────────────── */
+.scroll-rail{position:fixed;top:50%;right:10px;transform:translateY(-50%);
+  z-index:150;display:flex;flex-direction:column;align-items:center;gap:6px;
+  background:#fff;border:1px solid var(--gray-200);border-radius:var(--r-full);
+  padding:8px 6px;box-shadow:var(--shadow-md);opacity:0;pointer-events:none;
+  transition:opacity .2s ease}
+.scroll-rail.visible{opacity:1;pointer-events:auto}
+.scroll-rail-btn{width:32px;height:32px;border-radius:50%;border:none;
+  background:var(--gray-100);color:var(--gray-700);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:.9rem;
+  transition:background var(--tr),color var(--tr);flex-shrink:0}
+.scroll-rail-btn:hover{background:var(--primary);color:#fff}
+.scroll-rail-track{width:4px;height:90px;background:var(--gray-200);
+  border-radius:2px;position:relative;overflow:hidden}
+.scroll-rail-thumb{position:absolute;left:0;top:0;width:100%;
+  background:var(--primary);border-radius:2px;transition:height .1s linear,top .1s linear}
+@media(max-width:768px){
+  .scroll-rail{right:6px;padding:6px 4px;gap:4px}
+  .scroll-rail-btn{width:28px;height:28px;font-size:.8rem}
+  .scroll-rail-track{height:60px}
+}
+@media(max-width:480px){
+  .scroll-rail{display:none}
+}
+@media print{ .scroll-rail{display:none!important} }
+
 /* ── RESPONSIVE ──────────────────────────────────────────────────── */
 @media(max-width:1024px){
   :root{--sidebar:240px}
   .global-search{width:180px}
+}
+@media(max-width:900px){
+  .admin-stats-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 }
 @media(max-width:768px){
   .admin-sidebar{transform:translateX(-100%);width:280px;min-width:280px}
@@ -268,6 +297,7 @@
   .dash-charts-row,.dash-recent-row{grid-template-columns:1fr}
   .settings-grid,.ai-grid,.notif-channels{grid-template-columns:1fr}
   .activate-grid,.assign-grid,.monitor-grid{grid-template-columns:1fr}
+  .admin-topbar-right{gap:8px}
 }
 @media(max-width:480px){
   .admin-topbar{padding:0 12px;gap:8px}
@@ -280,4 +310,11 @@
   .admin-mod{padding:12px}
   .exam-tabs-row,.role-tabs,.analytics-tabs-row{gap:6px}
   .etab,.rtab,.atab{padding:7px 12px;font-size:.8rem}
+  .mod-header{flex-direction:column;align-items:flex-start}
+  .mod-header>div{width:100%}
+  .mod-header>div button{flex:1}
+}
+@media(max-width:360px){
+  .admin-stats-grid{grid-template-columns:1fr 1fr}
+  .asc-ic{font-size:1.3rem}
 }

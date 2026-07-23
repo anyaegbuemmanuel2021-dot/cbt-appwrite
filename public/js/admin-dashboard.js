@@ -143,32 +143,37 @@ const AdminDashboard = (() => {
     ).join('') || '<p class="no-data">No candidates assigned</p>';
   }
 
+  let _chartInstances = {};
+  function _destroyAndCreate(canvasId, config) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    if (_chartInstances[canvasId]) { _chartInstances[canvasId].destroy(); }
+    else { const existing = Chart.getChart(ctx); if (existing) existing.destroy(); }
+    _chartInstances[canvasId] = new Chart(ctx, config);
+  }
+
   async function _drawCharts(resultDocs) {
     if (!window.Chart) return;
     const days = Array.from({length:7},(_,i) => {
       const d = new Date(); d.setDate(d.getDate()-6+i);
       return d.toLocaleDateString('en-NG',{weekday:'short'});
     });
-    const ctx1 = document.getElementById('submissionsChart');
-    if (ctx1) new Chart(ctx1,{type:'bar',data:{labels:days,datasets:[{label:'Submissions',
+    _destroyAndCreate('submissionsChart', {type:'bar',data:{labels:days,datasets:[{label:'Submissions',
       data:days.map(()=>Math.floor(Math.random()*50)),backgroundColor:'#667eea',borderRadius:6}]},
       options:{responsive:true,plugins:{legend:{display:false}}}});
 
-    const ctx2 = document.getElementById('centrePassChart');
-    if (ctx2) {
-      const passRateBySubject = {};
-      resultDocs.forEach(r => {
-        const k = r.examName||'Unknown';
-        if (!passRateBySubject[k]) passRateBySubject[k] = {passed:0,total:0};
-        passRateBySubject[k].total++;
-        if (r.passed) passRateBySubject[k].passed++;
-      });
-      const labels = Object.keys(passRateBySubject).slice(0,6);
-      const data   = labels.map(k => Math.round(passRateBySubject[k].passed/passRateBySubject[k].total*100));
-      new Chart(ctx2,{type:'bar',data:{labels,datasets:[{label:'Pass Rate %',data,
-        backgroundColor:'#28a745',borderRadius:6}]},
-        options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}}}});
-    }
+    const passRateBySubject = {};
+    resultDocs.forEach(r => {
+      const k = r.examName||'Unknown';
+      if (!passRateBySubject[k]) passRateBySubject[k] = {passed:0,total:0};
+      passRateBySubject[k].total++;
+      if (r.passed) passRateBySubject[k].passed++;
+    });
+    const labels = Object.keys(passRateBySubject).slice(0,6);
+    const data   = labels.map(k => Math.round(passRateBySubject[k].passed/passRateBySubject[k].total*100));
+    _destroyAndCreate('centrePassChart', {type:'bar',data:{labels,datasets:[{label:'Pass Rate %',data,
+      backgroundColor:'#28a745',borderRadius:6}]},
+      options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}}}});
   }
 
   async function loadRecentActivity() {
@@ -226,6 +231,49 @@ const AdminDashboard = (() => {
   function refresh() { loadDashboard(); }
   function exportSummary() { window.print(); }
   function toggleNotifications() { window.NotificationManager?.toggle?.(); }
+
+  /* ── RIGHT-HAND SCROLL RAIL ──────────────────────────────────────── */
+  let _railTarget = null;
+  function _initScrollRail() {
+    const rail  = document.getElementById('scrollRail');
+    const up    = document.getElementById('scrollRailUp');
+    const down  = document.getElementById('scrollRailDown');
+    const thumb = document.getElementById('scrollRailThumb');
+    if (!rail) return;
+
+    function currentMod() { return document.querySelector('.admin-mod[style*="block"]') || document.getElementById('mod-dashboard'); }
+
+    function updateThumb() {
+      const el = _railTarget; if (!el) return;
+      const scrollable = el.scrollHeight - el.clientHeight;
+      if (scrollable <= 4) { rail.classList.remove('visible'); return; }
+      rail.classList.add('visible');
+      const trackH = thumb.parentElement.clientHeight;
+      const thumbH = Math.max(20, trackH * (el.clientHeight / el.scrollHeight));
+      const top    = (el.scrollTop / scrollable) * (trackH - thumbH);
+      thumb.style.height = thumbH + 'px';
+      thumb.style.top    = top + 'px';
+    }
+
+    function bind(el) {
+      if (_railTarget === el) return;
+      if (_railTarget) _railTarget.removeEventListener('scroll', updateThumb);
+      _railTarget = el;
+      if (_railTarget) { _railTarget.addEventListener('scroll', updateThumb, { passive:true }); updateThumb(); }
+    }
+
+    up.addEventListener('click', () => _railTarget?.scrollTo({ top:0, behavior:'smooth' }));
+    down.addEventListener('click', () => _railTarget?.scrollTo({ top:_railTarget.scrollHeight, behavior:'smooth' }));
+    window.addEventListener('resize', updateThumb);
+
+    bind(currentMod());
+    // Re-bind whenever a module becomes visible (switchModule toggles display)
+    const obs = new MutationObserver(() => bind(currentMod()));
+    document.querySelectorAll('.admin-mod').forEach(m => obs.observe(m, { attributes:true, attributeFilter:['style'] }));
+    // Data changes size of content after async loads — recheck shortly after
+    setInterval(updateThumb, 1000);
+  }
+  document.addEventListener('DOMContentLoaded', _initScrollRail);
 
   return { refresh, exportSummary, globalSearch, toggleNotifications, switchModule };
 })();
