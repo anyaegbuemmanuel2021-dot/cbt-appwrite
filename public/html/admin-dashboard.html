@@ -618,13 +618,24 @@
           <div class="form-group"><label>Centre *</label><select id="candFormCentre" name="centreId" required><option value="">Select Centre</option></select></div>
           <div class="form-group"><label>Gender</label><select name="gender"><option value="">—</option><option>Male</option><option>Female</option></select></div>
         </div>
-        <div class="form-group"><label>Date of Birth</label><input type="date" name="dob"></div>
+        <div class="form-group">
+          <label>Password <span class="field-hint">(optional — leave blank to auto-generate from Candidate ID)</span></label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="candFormPassword" name="candPassword" minlength="8" placeholder="Leave blank for default" autocomplete="new-password">
+            <button type="button" class="btn-outline-sm" onclick="CandidateManager.genPassword()">🎲 Generate</button>
+          </div>
+          <div class="field-hint">If set, must be at least 8 characters. Candidate can change it after first login.</div>
+        </div>
+        <div class="form-group">
+          <label>Date of Birth</label>
+          <input type="date" name="dob">
+        </div>
         <div class="form-group">
           <label>Passport Photo <span class="field-hint">(required for candidates)</span></label>
           <input type="file" id="candImageInput" accept="image/jpeg,image/png,image/webp">
           <div id="candImgPreview" style="margin-top:8px"></div>
         </div>
-        <p class="field-hint">Default password = Candidate ID. Candidate must change on first login.</p>
+        <p class="field-hint">If no password is set above, it defaults to the Candidate ID. Candidate must change it on first login.</p>
         <div class="modal-footer">
           <button type="button" class="btn-outline" onclick="closeModal('candidateModal')">Cancel</button>
           <button type="submit" class="btn-primary" id="saveCandidateBtn">Save Candidate</button>

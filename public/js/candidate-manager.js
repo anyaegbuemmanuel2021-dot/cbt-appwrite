@@ -106,7 +106,7 @@ const CandidateManager = (() => {
         <td>${_esc(c.fullName||'—')}</td>
         <td>${_esc(c.email||'—')}</td>
         <td>${_esc(centre?.name||c.centreName||'—')}</td>
-        <td>${Array.isArray(c.examIds)?c.examIds.length:0}</td>
+        <td>${_examCount(c.examIds)}</td>
         <td><span class="badge ${(c.status||'active')==='active'?'badge-success':'badge-gray'}">${c.status||'active'}</span></td>
         <td class="action-cell">
           <button class="btn-outline-sm" onclick="CandidateManager.showEdit('${c.id}')">✏️ Edit</button>
@@ -122,6 +122,8 @@ const CandidateManager = (() => {
     editingId = null;
     document.getElementById('candidateModalTitle').textContent = 'Add Candidate';
     document.getElementById('candidateForm').reset();
+    const pwField = document.getElementById('candFormPassword');
+    if (pwField) pwField.value = '';
     document.getElementById('candidateModal').style.display = 'flex';
     centresCache = [];
     await _loadCentreOptions();
@@ -155,9 +157,13 @@ const CandidateManager = (() => {
     const candidateId= form.candidateId?.value.trim().toUpperCase();
     const centreId   = (form.querySelector('[name="centreId"]') || document.getElementById('candFormCentre'))?.value;
     const imageFile  = document.getElementById('candImageInput')?.files?.[0];
+    const customPassword = document.getElementById('candFormPassword')?.value.trim();
 
     if (!fullName || !email || !candidateId || !centreId) {
       return _toast('Please fill all required fields.', 'danger');
+    }
+    if (customPassword && customPassword.length < 8) {
+      return _toast('Password must be at least 8 characters (or leave it blank to auto-generate).', 'danger');
     }
 
     const saveBtn = document.getElementById('saveCandidateBtn');
@@ -174,10 +180,10 @@ const CandidateManager = (() => {
         if (byEmail.total > 0) throw new Error(`Email "${email}" is already registered.`);
 
         // ── Appwrite account creation ─────────────────────────────────
-        // Password defaults to candidateId (admin can reset later).
-        // Appwrite requires 8+ characters — pad short candidate IDs so
-        // account creation doesn't silently fail for short IDs.
-        const tempPassword = _padPassword(candidateId);
+        // Uses the admin-supplied password if one was entered; otherwise
+        // falls back to the candidateId, padded to Appwrite's 8-char
+        // minimum (see window.padPassword in appwrite-config.js).
+        const tempPassword = customPassword || _padPassword(candidateId);
 
         let newUser, uid;
         try {
@@ -205,7 +211,7 @@ const CandidateManager = (() => {
             candidateId, fullName, email, phone: phone||'',
             centreId, centreName: centre?.name||'',
             passportImageUrl, status: 'active',
-            examIds: [],
+            examIds: '[]', // column is a string type in Appwrite, not an array — store JSON
             createdAt: new Date().toISOString(),
           }, uid);
         } catch (dbErr) {
@@ -214,7 +220,10 @@ const CandidateManager = (() => {
         }
 
         await audit('CANDIDATE_CREATED', { candidateId, centreId });
-        _toast('Candidate created successfully!', 'success');
+        closeModal('candidateModal');
+        await load(currentPage);
+        _showCredentials(candidateId, email, tempPassword);
+        return; // credentials dialog replaces the generic success toast/close-modal flow below
       } else {
         // ── Update ────────────────────────────────────────────────────
         let passportImageUrl = allCandidates.find(x=>x.id===editingId)?.passportImageUrl || '';
@@ -295,7 +304,7 @@ const CandidateManager = (() => {
             await DB.create(SD.COL.CANDIDATES, {
               candidateId, fullName, email, phone,
               centreId, centreName: centre?.name||'',
-              passportImageUrl: '', status: 'active', examIds: [],
+              passportImageUrl: '', status: 'active', examIds: '[]',
               createdAt: new Date().toISOString(),
             }, newUser.$id);
             added++;
@@ -318,10 +327,32 @@ const CandidateManager = (() => {
     }
   }
 
+  /* ── Password helpers for the Add Candidate form ─────────────────── */
+  function genPassword() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let pw = '';
+    for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+    const field = document.getElementById('candFormPassword');
+    if (field) { field.value = pw; field.type = 'text'; }
+  }
+
+  function _showCredentials(candidateId, email, password) {
+    const msg = `Candidate created!\n\nLogin ID: ${candidateId}\nEmail: ${email}\nPassword: ${password}\n\nShare these with the candidate now — the password won't be shown again.`;
+    alert(msg);
+  }
+
   /* ── helpers ──────────────────────────────────────────────────────── */
   // See window.padPassword in appwrite-config.js — shared with auth.js so
   // creation and login always agree on the default candidate password.
   const _padPassword = window.padPassword;
+  function _examCount(examIds) {
+    if (Array.isArray(examIds)) return examIds.length; // legacy rows saved before this fix
+    if (typeof examIds === 'string') {
+      try { const arr = JSON.parse(examIds); return Array.isArray(arr) ? arr.length : 0; }
+      catch { return 0; }
+    }
+    return 0;
+  }
   function _esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function _toast(msg, type='info') {
     if(window.Toast) Toast.show(msg, type);
@@ -330,7 +361,7 @@ const CandidateManager = (() => {
 
   return {
     load, search, filterByCentre, filterByStatus,
-    showAdd, showEdit, save,
+    showAdd, showEdit, save, genPassword,
     delete: deleteCand,
     viewResults, importExcel,
   };
