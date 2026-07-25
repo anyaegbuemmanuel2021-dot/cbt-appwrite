@@ -3,6 +3,8 @@
  * Features: No duplicates · Paginated load · Cloudinary passport images
  *           Centre dropdown everywhere · Bulk Excel import · Password toggle
  */
+
+
 const CandidateManager = (() => {
   'use strict';
 

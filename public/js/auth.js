@@ -1,4 +1,4 @@
-/**    
+/**
  * SOFTLY DIGITAL V3 — auth.js (Appwrite edition)
  * Flow: Login → Role Verification → Account Status → Dashboard
  * Password toggle on ALL password fields. No OTP/2FA.

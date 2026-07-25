@@ -11,7 +11,6 @@ window.APP_ENV = {
   APPWRITE_ENDPOINT:    'https://fra.cloud.appwrite.io/v1',
   APPWRITE_PROJECT_ID:  '6a5cab36001397f233a6',
 
-
   /* Cloudinary — unsigned upload only (api_secret stays server-side) */
   CLOUDINARY_CLOUD:     'dfppqz2tk',
   CLOUDINARY_API_KEY:   '469832992668418',
@@ -70,7 +69,6 @@ window.padPassword = function padPassword(candidateId) {
   const id = String(candidateId || '');
   return id.length >= 8 ? id : id.padEnd(8, '0');
 };
-
 
 /* ── Global namespace ───────────────────────────────────────────── */
 window.SD = {
