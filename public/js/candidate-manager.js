@@ -3,8 +3,6 @@
  * Features: No duplicates · Paginated load · Cloudinary passport images
  *           Centre dropdown everywhere · Bulk Excel import · Password toggle
  */
-
-
 const CandidateManager = (() => {
   'use strict';
 
@@ -36,10 +34,33 @@ const CandidateManager = (() => {
       allCandidates = res.documents.map(d => ({ id: d.$id, ...d }));
 
       await _loadCentreOptions();
+      await _loadExamCounts(allCandidates.map(c => c.id));
       _applyFilters();
       _renderPagination();
     } catch(e) {
       tbody.innerHTML = `<tr><td colspan="9" style="color:#dc3545">Error: ${e.message}</td></tr>`;
+    }
+  }
+
+  /* ── EXAM COUNTS ──────────────────────────────────────────────────
+   * "Exams" column = number of exams the candidate has actually taken,
+   * i.e. rows in the RESULTS table for that candidate — NOT the (mostly
+   * unused) examIds field on the candidate row itself. */
+  let examCounts = {}; // candidateId ($id) -> count
+
+  async function _loadExamCounts(candidateIds) {
+    examCounts = {};
+    if (!candidateIds.length) return;
+    try {
+      const res = await DB.list(SD.COL.RESULTS, [
+        SD.Q.equal('candidateId', candidateIds),
+      ], 5000);
+      for (const row of res.documents) {
+        examCounts[row.candidateId] = (examCounts[row.candidateId] || 0) + 1;
+      }
+    } catch (e) {
+      console.warn('[CandidateManager] Could not load exam counts:', e);
+      // Non-fatal — table still renders, just shows 0 for everyone.
     }
   }
 
@@ -108,7 +129,7 @@ const CandidateManager = (() => {
         <td>${_esc(c.fullName||'—')}</td>
         <td>${_esc(c.email||'—')}</td>
         <td>${_esc(centre?.name||c.centreName||'—')}</td>
-        <td>${_examCount(c.examIds)}</td>
+        <td>${examCounts[c.id] || 0}</td>
         <td><span class="badge ${(c.status||'active')==='active'?'badge-success':'badge-gray'}">${c.status||'active'}</span></td>
         <td class="action-cell">
           <button class="btn-outline-sm" onclick="CandidateManager.showEdit('${c.id}')">✏️ Edit</button>
