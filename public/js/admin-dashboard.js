@@ -36,6 +36,10 @@ const AdminDashboard = (() => {
         switchModule(a.dataset.mod);
         document.querySelectorAll('.admin-nav-item').forEach(i=>i.classList.remove('active'));
         a.classList.add('active');
+        // No-op on desktop (the sidebar has no 'open' behaviour above the
+        // mobile breakpoint); on phones/tablets this closes the overlay
+        // sidebar so the module you just picked isn't hidden behind it.
+        window.toggleAdminSidebar?.(false);
       });
     });
 
@@ -85,12 +89,24 @@ const AdminDashboard = (() => {
       // Get full counts via total
       const [allExams, allResults] = await Promise.all([
         DB.list(SD.COL.EXAMS,   [], 500),
-        DB.list(SD.COL.RESULTS, [], 500),
+        // FIX: unordered — with more than 500 results ever recorded, this
+        // silently returned the OLDEST 500 (Appwrite's default order),
+        // so "recent activity" charts and the pass-rate stat could be
+        // computed from ancient data instead of what actually happened
+        // this week. Order newest-first so recent submissions are always
+        // included.
+        DB.list(SD.COL.RESULTS, [SD.Q.orderDesc('createdAt')], 500),
       ]);
 
       const activeExams  = allExams.documents.filter(d=>d.active).length;
-      const passedCount  = allResults.documents.filter(d=>d.passed).length;
-      const passRate     = allResults.total ? Math.round(passedCount/allResults.total*100) : 0;
+      // FIX: this used to be `allResults.documents.filter(passed).length /
+      // allResults.total` — the numerator only ever covered a 500-row
+      // sample while the denominator was the TRUE total, so once a centre
+      // had more than 500 results ever recorded, the displayed pass rate
+      // was mathematically wrong (understated). Get the real passed count
+      // via its own totals-only query so both sides of the ratio agree.
+      const passedTotalRes = await DB.list(SD.COL.RESULTS, [SD.Q.equal('passed', true)], 1);
+      const passRate = results.total ? Math.round(passedTotalRes.total / results.total * 100) : 0;
 
       _set('dCandidates', cands.total);
       _set('dExams',      exams.total);
@@ -154,12 +170,29 @@ const AdminDashboard = (() => {
 
   async function _drawCharts(resultDocs) {
     if (!window.Chart) return;
-    const days = Array.from({length:7},(_,i) => {
-      const d = new Date(); d.setDate(d.getDate()-6+i);
-      return d.toLocaleDateString('en-NG',{weekday:'short'});
+
+    // Build the last 7 calendar days as YYYY-MM-DD keys (for accurate
+    // counting) alongside their display labels.
+    const dayKeys   = [];
+    const dayLabels = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      dayKeys.push(d.toISOString().slice(0, 10));
+      dayLabels.push(d.toLocaleDateString('en-NG', { weekday: 'short' }));
+    }
+    // FIX: this chart used to be `Math.floor(Math.random()*50)` — pure
+    // fake data with no connection to real submissions at all. Count
+    // actual results per day instead.
+    const countsByDay = {};
+    resultDocs.forEach(r => {
+      if (!r.createdAt) return;
+      const key = r.createdAt.slice(0, 10);
+      countsByDay[key] = (countsByDay[key] || 0) + 1;
     });
-    _destroyAndCreate('submissionsChart', {type:'bar',data:{labels:days,datasets:[{label:'Submissions',
-      data:days.map(()=>Math.floor(Math.random()*50)),backgroundColor:'#667eea',borderRadius:6}]},
+    const submissionCounts = dayKeys.map(k => countsByDay[k] || 0);
+
+    _destroyAndCreate('submissionsChart', {type:'bar',data:{labels:dayLabels,datasets:[{label:'Submissions',
+      data:submissionCounts,backgroundColor:'#667eea',borderRadius:6}]},
       options:{responsive:true,plugins:{legend:{display:false}}}});
 
     const passRateBySubject = {};

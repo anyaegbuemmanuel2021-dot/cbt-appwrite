@@ -512,7 +512,7 @@ const ExamEngine = (() => {
       const correctLetter = q.shuffledCorrectAnswer || q.correctAnswer;
       const isCorrect     = studentAns === correctLetter;
       if (isCorrect) correct++;
-      breakdown[q.id] = { questionText: q.text, studentAnswer: studentAns, correctAnswer: correctLetter, isCorrect, subject: q.subject || '' };
+      breakdown[q.id] = { questionText: q.text, studentAnswer: studentAns, correctAnswer: correctLetter, isCorrect, subject: q.subject || '', difficulty: q.difficulty || 'medium' };
       if (debug) {
         console.log('[grading]', {
           questionId: q.id,

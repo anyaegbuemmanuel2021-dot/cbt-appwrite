@@ -36,6 +36,7 @@ const CandidateDashboard = (() => {
         a.classList.add('active');
         if (sec === 'certs')   loadCertificates();
         if (sec === 'profile') _loadProfileInfo();
+        window.toggleSidebar?.(false); // close mobile overlay sidebar after navigating
       });
     });
   });

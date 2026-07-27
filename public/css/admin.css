@@ -38,6 +38,14 @@
   transition:all var(--tr);min-height:38px}
 .admin-logout:hover{background:rgba(220,53,69,.3);color:#fff}
 
+/* Mobile-only backdrop shown behind the open sidebar so tapping outside
+   of it closes it, and so it's visually obvious content is covered
+   rather than just... gone. Hidden entirely on desktop. */
+.admin-sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);
+  z-index:190;opacity:0;pointer-events:none;transition:opacity .25s ease}
+.admin-sidebar-overlay.visible{opacity:1;pointer-events:auto}
+body.sidebar-locked{overflow:hidden}
+
 /* ── MAIN ─────────────────────────────────────────────────────────── */
 .admin-main{margin-left:var(--sidebar);flex:1;min-height:100vh;
   display:flex;flex-direction:column;overflow:hidden;
@@ -288,6 +296,7 @@
   .admin-main{margin-left:0!important}
   .menu-btn{display:flex!important}
   .sb-close-btn{display:flex}
+  .admin-sidebar-overlay{display:block}
   .global-search{width:140px}
   .admin-stats-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
   .asc{padding:14px 12px}

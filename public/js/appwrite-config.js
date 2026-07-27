@@ -256,12 +256,20 @@ window.AUTH = {
 window.audit = async function auditLog(action, meta = {}, severity = 'INFO') {
   try {
     const user = await AUTH.current().catch(() => null);
+    // Stamp the acting user's name/email into meta (kept inside the free-form
+    // JSON blob, not as new top-level columns, so this never risks a schema
+    // mismatch on the audit_logs table). This is what lets the Audit Logs
+    // screen show "Jane Doe (jane@x.com)" instead of a bare document ID.
+    const enrichedMeta = {
+      ...meta,
+      ...(user ? { name: user.name || undefined, email: user.email || undefined } : {}),
+    };
     await DB.create(COL.AUDIT_LOGS, {
       action,
       severity,
       userId:    user?.$id || 'anonymous',
       userAgent: navigator.userAgent.substring(0, 200),
-      meta:      JSON.stringify(meta),
+      meta:      JSON.stringify(enrichedMeta),
       timestamp: new Date().toISOString(),
     });
   } catch (_) { /* non-blocking — never break the UI over an audit log */ }
@@ -292,8 +300,6 @@ window.togglePw = function(id) {
   if (el) el.type = (el.type === 'password' ? 'text' : 'password');
 };
 window.toggleSidebar      = () => document.getElementById('sidebar')?.classList.toggle('open');
-window.toggleAdminSidebar = () => document.getElementById('adminSidebar')?.classList.toggle('open');
-
 /* ── Toast notification (lightweight, no library) ───────────────── */
 window.Toast = {
   show(msg, type = 'info') {

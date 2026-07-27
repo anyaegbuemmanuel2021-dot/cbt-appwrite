@@ -316,8 +316,27 @@ const AuthManager = (() => {
 
   /* ── Global UI helpers ───────────────────────────────────────────── */
   window.togglePw = id => { const i = $id(id); if (i) i.type = (i.type === 'password' ? 'text' : 'password'); };
-  window.toggleSidebar      = () => $id('sidebar')?.classList.toggle('open');
-  window.toggleAdminSidebar = () => $id('adminSidebar')?.classList.toggle('open');
+
+  // Shared mobile sidebar toggle used by both the candidate sidebar
+  // (#sidebar) and the admin sidebar (#adminSidebar). Pass true/false to
+  // force it open/closed (e.g. tapping the backdrop always closes),
+  // or call with no argument to flip its current state.
+  function _toggleSidebarEl(sidebarId, overlayId, force) {
+    const el = $id(sidebarId);
+    if (!el) return;
+    const willOpen = typeof force === 'boolean' ? force : !el.classList.contains('open');
+    el.classList.toggle('open', willOpen);
+    const overlay = overlayId && $id(overlayId);
+    if (overlay) overlay.classList.toggle('visible', willOpen);
+    // Prevent the page behind the sidebar from scrolling while it's open
+    // as an overlay on small screens — this is what made content feel
+    // "covered"/unreachable: the sidebar sat on top but the page under it
+    // could still scroll independently, throwing off touch scrolling.
+    document.body.classList.toggle('sidebar-locked', willOpen);
+  }
+  window.toggleSidebar      = force => _toggleSidebarEl('sidebar', 'sidebarOverlay', force);
+  window.toggleAdminSidebar = force => _toggleSidebarEl('adminSidebar', 'adminSidebarOverlay', force);
+
   window.closeModal = id => { const el = $id(id); if (el) { el.style.display = 'none'; el.classList.remove('active'); } };
   window.showSection = sec => {
     document.querySelectorAll('.sec').forEach(s => s.style.display = 'none');

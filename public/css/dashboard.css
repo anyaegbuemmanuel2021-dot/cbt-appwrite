@@ -27,6 +27,12 @@
   font-size:.875rem;font-weight:600;transition:all var(--tr);min-height:40px}
 .logout-btn:hover{background:rgba(220,53,69,.3);color:#fff}
 
+/* Mobile-only backdrop behind the open sidebar */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);
+  z-index:190;opacity:0;pointer-events:none;transition:opacity .25s ease}
+.sidebar-overlay.visible{opacity:1;pointer-events:auto}
+body.sidebar-locked{overflow:hidden}
+
 /* MAIN */
 .dash-main{margin-left:260px;flex:1;min-height:100vh;display:flex;flex-direction:column}
 
@@ -148,6 +154,7 @@
   .dash-main{margin-left:0!important}
   .menu-toggle{display:flex!important}
   .sb-close{display:flex}
+  .sidebar-overlay{display:block}
   .sec{padding:16px}
   .stats-row{grid-template-columns:repeat(2,1fr);gap:10px}
   .exam-cards-grid{grid-template-columns:1fr}
