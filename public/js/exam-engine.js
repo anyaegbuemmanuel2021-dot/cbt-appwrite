@@ -149,6 +149,25 @@ const ExamEngine = (() => {
         localStorage.setItem('examSession_' + examId, sessionId);
       }
 
+      /* ── Step 4b: Was this exam left mid-attempt (tab closed, refreshed,
+         browser-navigated away, or history back) last time? If so, finish
+         the job now instead of letting the candidate quietly resume — the
+         page-leave listener below (see _armLeaveGuard) stamps this flag
+         the instant the exam tab is torn down while still active, and we
+         only get a chance to act on it the next time this page loads. ── */
+      let leftFlag = null;
+      try { leftFlag = JSON.parse(localStorage.getItem('examAutoSubmitPending_' + examId) || 'null'); } catch (_) {}
+      if (leftFlag && leftFlag.sessionId === sessionId && existingSessionDoc && existingSessionDoc.status === 'active') {
+        localStorage.removeItem('examAutoSubmitPending_' + examId);
+        _setLoading('You left the exam earlier — submitting your exam now…');
+        document.getElementById('loadingScreen')?.classList.remove('is-hidden');
+        isActive = true;
+        await _doSubmit('auto_left_page');
+        document.getElementById('loadingScreen')?.classList.add('is-hidden');
+        return;
+      }
+      localStorage.removeItem('examAutoSubmitPending_' + examId);
+
       /* ── Step 5: Security config + AntiCheat ── */
       _setLoading('Starting security monitor…');
       await _loadSecurityConfig();
@@ -195,6 +214,7 @@ const ExamEngine = (() => {
 
     isActive = true;
     ExamSync.start(exam.id, sessionId, answers);
+    _armLeaveGuards();
 
     /* ── Reveal app, hide loading screen ── */
     document.getElementById('loadingScreen')?.classList.add('is-hidden');
@@ -207,6 +227,41 @@ const ExamEngine = (() => {
     const el = document.getElementById('loadingText');
     if (el) { el.textContent = '❌ ' + msg; el.style.color = '#F5A6AE'; }
     document.querySelector('.loading-ring')?.style.setProperty('display', 'none');
+  }
+
+  /* ── LEAVE GUARDS ────────────────────────────────────────────────────
+     Two ways a candidate can "leave" mid-exam, handled differently:
+
+     1) Browser back/forward button — we can intercept this in real time
+        (popstate fires before the page actually unloads), so we trap the
+        candidate on the page and submit immediately, right here.
+
+     2) Tab close, refresh, typing a new URL, or any other hard navigation
+        — the page is destroyed before an async submit (grading, DB
+        writes) could ever finish, so it can't be done reliably in the
+        unload handler itself. Instead we stamp a flag in localStorage the
+        instant the page starts tearing down; Step 4b in init() checks for
+        that flag the next time this exam is opened and finishes the
+        submission then, using the answers that were already autosaved.
+  ── */
+  function _armLeaveGuards() {
+    // (1) Back/forward button
+    history.pushState({ examGuard: true }, '', location.href);
+    window.addEventListener('popstate', () => {
+      if (!isActive || isSubmitting) return;
+      history.pushState({ examGuard: true }, '', location.href); // stay put
+      autoSubmit('left_page');
+    });
+
+    // (2) Tab close / refresh / typed URL / any other hard navigation
+    window.addEventListener('pagehide', () => {
+      if (!isActive || isSubmitting) return;
+      try {
+        localStorage.setItem('examAutoSubmitPending_' + exam.id, JSON.stringify({
+          sessionId, ts: Date.now(),
+        }));
+      } catch (_) {}
+    });
   }
 
   /* ── SUBJECT LIST (sidebar) ─────────────────────────────────────── */
@@ -433,6 +488,8 @@ const ExamEngine = (() => {
       bot_detected:         'Automated activity detected. Exam submitted for review.',
       multiple_login:       'Exam opened in another tab/device. This session submitted.',
       session_idle_timeout: 'Auto-submitted due to extended inactivity.',
+      left_page:            'You left the exam page. Your exam has been automatically submitted.',
+      ended_session:        'Your exam was submitted because you ended the session.',
     };
     if (reason !== 'timeout') {
       _setEl('autoSubmitMsg', msgs[reason] || 'Your exam was automatically submitted.');
@@ -694,10 +751,11 @@ const ExamEngine = (() => {
     scrim.addEventListener('click', closeSidebar);
     document.getElementById('mobileTimerBtn')?.addEventListener('click', openSidebar);
 
-    document.getElementById('logoutBtn')?.addEventListener('click', () => {
-      if (!confirm('End this session? Your progress is saved locally and will resume next time you open this exam.')) return;
+    document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+      if (!isActive) { location.href = 'candidate-dashboard.html'; return; }
+      if (!confirm('Ending this session will submit your exam immediately with your current answers. This cannot be undone. Continue?')) return;
       window.onbeforeunload = null;
-      location.href = 'candidate-dashboard.html';
+      await autoSubmit('ended_session');
     });
 
     // Network status
@@ -719,8 +777,8 @@ const ExamEngine = (() => {
     window.addEventListener('offline', updateNetworkStatus);
     updateNetworkStatus();
 
-    // Warn before leaving mid-exam
-    window.onbeforeunload = () => isActive ? 'Leaving now may affect your exam progress. Are you sure?' : undefined;
+    // Warn before leaving mid-exam — leaving the page now auto-submits the exam
+    window.onbeforeunload = () => isActive ? 'Leaving this page will submit your exam immediately. Are you sure?' : undefined;
 
     // Integrity: block copy/paste (fullscreen right-click already blocked via body attribute)
     document.addEventListener('copy',  e => { if (isActive) e.preventDefault(); });

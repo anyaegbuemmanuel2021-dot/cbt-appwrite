@@ -272,7 +272,14 @@ window.audit = async function auditLog(action, meta = {}, severity = 'INFO') {
       meta:      JSON.stringify(enrichedMeta),
       timestamp: new Date().toISOString(),
     });
-  } catch (_) { /* non-blocking — never break the UI over an audit log */ }
+  } catch (err) {
+    // Non-blocking — never break the UI over an audit log — but DO surface
+    // the failure to the console. If this collection is missing a
+    // permission (e.g. candidates/invigilators need "create" access on
+    // audit_logs) or the write ever fails, it used to fail 100% silently,
+    // which made the Audit Logs screen look "broken" with nothing to show.
+    console.warn('[audit] failed to write log for action "' + action + '":', err?.message || err);
+  }
 };
 
 /* ── Friendly error messages for Appwrite error codes ───────────── */

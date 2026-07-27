@@ -29,7 +29,22 @@ const AuditManager = (() => {
       allLogs = res.documents.map(d => ({ id: d.$id, ...d }));
       renderTable(allLogs);
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="5" style="color:#dc3545">${_esc(e.message)}</td></tr>`;
+      console.warn('[AuditManager] ordered query failed, retrying without order:', e?.message || e);
+      // Ordering by "timestamp" needs an index on the audit_logs table in
+      // Appwrite. If that index is missing/not-yet-built, Appwrite rejects
+      // the query entirely and the log screen looked "broken" (blank/error)
+      // even though the logs themselves existed. Fall back to an unordered
+      // fetch and sort client-side instead of failing outright.
+      try {
+        const res = await DB.list(SD.COL.AUDIT_LOGS, [], 300);
+        allLogs = res.documents
+          .map(d => ({ id: d.$id, ...d }))
+          .sort((a, b) => new Date(b.timestamp || b.$createdAt) - new Date(a.timestamp || a.$createdAt));
+        renderTable(allLogs);
+      } catch (e2) {
+        console.error('[AuditManager] failed to load audit logs:', e2);
+        tbody.innerHTML = `<tr><td colspan="5" style="color:#dc3545">${_esc(e2.message)}</td></tr>`;
+      }
     }
   }
 
