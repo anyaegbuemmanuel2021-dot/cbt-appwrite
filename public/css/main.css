@@ -229,9 +229,14 @@ h3{font-size:clamp(1rem,2vw,1.2rem)}
 .assign-photo{width:32px;height:32px;border-radius:50%;object-fit:cover}
 
 /* ── Scrollbar ────────────────────────────────────────────────────────── */
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:var(--gray-100)}
-::-webkit-scrollbar-thumb{background:var(--primary-l);border-radius:var(--r-full)}
+/* Was a near-white thumb on a near-white track (6px, #e8ebfb on #f8f9fa) —
+   technically present but practically invisible on light backgrounds like
+   the admin panel, which read as "there's no scrollbar at all". Widened
+   slightly and given real contrast so it's actually visible and grabbable. */
+* { scrollbar-width: thin; scrollbar-color: var(--gray-500) var(--gray-200); }
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--gray-200)}
+::-webkit-scrollbar-thumb{background:var(--gray-500);border-radius:var(--r-full);border:2px solid var(--gray-200);background-clip:padding-box}
 ::-webkit-scrollbar-thumb:hover{background:var(--primary)}
 
 /* ── Status banner ────────────────────────────────────────────────────── */

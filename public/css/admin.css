@@ -5,7 +5,11 @@
 .admin-sidebar{width:var(--sidebar);min-width:var(--sidebar);height:100vh;
   background:var(--dark);color:#fff;display:flex;flex-direction:column;
   position:fixed;top:0;left:0;z-index:200;overflow-y:auto;
+  scrollbar-color:rgba(255,255,255,.25) transparent;
   transition:transform .3s ease;will-change:transform}
+.admin-sidebar::-webkit-scrollbar-track{background:transparent}
+.admin-sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border:none}
+.admin-sidebar::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.4)}
 .admin-sb-header{display:flex;align-items:center;gap:12px;padding:20px 16px;
   border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
 .admin-logo{font-size:1.6rem}
