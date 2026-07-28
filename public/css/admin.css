@@ -86,7 +86,7 @@ body.sidebar-locked{overflow:hidden}
   font-weight:600;color:var(--success);white-space:nowrap}
 
 /* ── MODULES ─────────────────────────────────────────────────────── */
-.admin-mod{padding:24px;overflow-y:auto;flex:1;animation:fadeIn .2s ease}
+.admin-mod{padding:24px;overflow-y:auto;flex:1;min-height:0;animation:fadeIn .2s ease}
 .admin-mod.active{display:block}
 .mod-header{display:flex;justify-content:space-between;align-items:center;
   margin-bottom:24px;gap:12px;flex-wrap:wrap}
