@@ -70,7 +70,16 @@ const AdminDashboard = (() => {
     if (mod==='results')      ResultManager.load();
     if (mod==='subjects')     SubjectManager.load();
     if (mod==='analytics')    window.AnalyticsManager?.load();
-    if (mod==='audit')        window.AuditManager?.load();
+    if (mod==='audit') {
+      if (window.AuditManager) {
+        window.AuditManager.load();
+      } else {
+        console.error('[AdminDashboard] AuditManager is not defined — audit-manager.js did not load. ' +
+          'Check the Network tab for a 404 on /js/audit-manager.js (path/case/deploy issue) or a script error thrown before it.');
+        const tbody = document.getElementById('auditBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="color:#dc3545">Audit module failed to load (audit-manager.js). Check the browser console.</td></tr>';
+      }
+    }
     if (mod==='ai')           window.AIModule?.loadSubjects();
     if (mod==='notifications')window.NotificationManager?.loadHistory();
     if (mod==='settings')     SettingsManager.load();

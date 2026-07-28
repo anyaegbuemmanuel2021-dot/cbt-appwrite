@@ -490,6 +490,8 @@ const ExamEngine = (() => {
       session_idle_timeout: 'Auto-submitted due to extended inactivity.',
       left_page:            'You left the exam page. Your exam has been automatically submitted.',
       ended_session:        'Your exam was submitted because you ended the session.',
+      tab_switch:           'You switched away from the exam window. Your exam has been automatically submitted.',
+      visibility_hidden:    'You navigated away from the exam page. Your exam has been automatically submitted.',
     };
     if (reason !== 'timeout') {
       _setEl('autoSubmitMsg', msgs[reason] || 'Your exam was automatically submitted.');

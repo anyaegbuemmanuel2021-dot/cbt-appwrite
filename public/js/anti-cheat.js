@@ -155,6 +155,14 @@ const AntiCheat = (() => {
 
   async function _record(type, message, severity) {
     if (!isActive) return;
+
+    const IMMEDIATE = ['BOT_DETECTED','MULTIPLE_LOGIN','SESSION_IDLE_TIMEOUT','TAB_SWITCH','VISIBILITY_HIDDEN'];
+    const willAutoSubmit = IMMEDIATE.includes(type);
+    // Stop synchronously (before any awaits) so a second event firing in the
+    // same tick — blur and visibilitychange both fire when switching tabs —
+    // can't sneak past the isActive guard above and double-process.
+    if (willAutoSubmit) isActive = false;
+
     violations++;
     const vCount = document.getElementById('vCount');
     const ehViol = document.getElementById('ehViolations');
@@ -176,9 +184,7 @@ const AntiCheat = (() => {
       }
     } catch(_) {}
 
-    const IMMEDIATE = ['BOT_DETECTED','MULTIPLE_LOGIN','SESSION_IDLE_TIMEOUT'];
-    if (IMMEDIATE.includes(type)) {
-      isActive = false;
+    if (willAutoSubmit) {
       try { if(sessionId) await DB.update(SD.COL.SESSIONS, sessionId, { status:'auto_'+type.toLowerCase() }); } catch(_){}
       window.ExamEngine?.autoSubmit(type.toLowerCase());
       return;
