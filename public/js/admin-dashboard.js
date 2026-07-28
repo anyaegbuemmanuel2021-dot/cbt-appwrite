@@ -69,20 +69,27 @@ const AdminDashboard = (() => {
     if (mod==='questions')    QuestionManager.load();
     if (mod==='results')      ResultManager.load();
     if (mod==='subjects')     SubjectManager.load();
-    if (mod==='analytics')    window.AnalyticsManager?.load();
-    if (mod==='audit') {
-      if (window.AuditManager) {
-        window.AuditManager.load();
-      } else {
-        console.error('[AdminDashboard] AuditManager is not defined — audit-manager.js did not load. ' +
-          'Check the Network tab for a 404 on /js/audit-manager.js (path/case/deploy issue) or a script error thrown before it.');
-        const tbody = document.getElementById('auditBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="color:#dc3545">Audit module failed to load (audit-manager.js). Check the browser console.</td></tr>';
-      }
-    }
-    if (mod==='ai')           window.AIModule?.loadSubjects();
-    if (mod==='notifications')window.NotificationManager?.loadHistory();
+    // NOTE: these modules are declared as top-level `const X = (()=>{...})()`
+    // in their own script files. A top-level const/let NEVER attaches to
+    // `window` (unlike var or a function declaration), so `window.X` is
+    // always undefined even though the plain identifier `X` works fine —
+    // that's why analytics/audit/ai/notifications silently never loaded
+    // while the tabs above (which call the identifier directly) did.
+    if (mod==='analytics')    _safeLoad('AnalyticsManager', () => AnalyticsManager.load());
+    if (mod==='audit')        _safeLoad('AuditManager',      () => AuditManager.load());
+    if (mod==='ai')           _safeLoad('AIModule',           () => AIModule.loadSubjects());
+    if (mod==='notifications')_safeLoad('NotificationManager', () => NotificationManager.loadHistory());
     if (mod==='settings')     SettingsManager.load();
+  }
+
+  // Looks the module up by its plain identifier (not `window.`, see note
+  // above) so a genuinely-missing script fails loudly instead of silently.
+  function _safeLoad(globalName, fn) {
+    try {
+      fn();
+    } catch (err) {
+      console.error('[AdminDashboard] ' + globalName + ' failed to load/run:', err.message || err);
+    }
   }
 
   async function loadDashboard() {
