@@ -104,7 +104,7 @@
     const result = []; let current = {};
     const labels = {'question':'question','question text':'question','option a':'optiona','a':'optiona','a)':'optiona','a.':'optiona','option b':'optionb','b':'optionb','b)':'optionb','b.':'optionb','option c':'optionc','c':'optionc','c)':'optionc','c.':'optionc','option d':'optiond','d':'optiond','d)':'optiond','d.':'optiond','correct answer':'correctanswer','answer':'correctanswer','subject':'subject','topic':'topic','difficulty':'difficulty','explanation':'explanation'};
     for (const p of paragraphs) {
-      const m = p.match(/^\s*(Question(?:\s*Text)?|Option\s*[A-D]|[A-D][).:]?|Correct\s*Answer|Answer|Subject|Topic|Difficulty|Explanation)\s*:\s*(.*)$/i);
+      const m = p.match(/^\s*(Question(?:\s*Text)?|Option\s*[A-D]|[A-D][).]?|Correct\s*Answer|Answer|Subject|Topic|Difficulty|Explanation)\s*(?::\s*|\s+)(.*)$/i);
       if (!m) { if (current.question) current.question += '\n' + p; continue; }
       const key = labels[m[1].toLowerCase().replace(/\s+/g,' ').trim()];
       if (key === 'question' && current.question) { result.push(current); current = {}; }
@@ -137,6 +137,8 @@
     if (item.question.length > 2000) item.errors.push('Question exceeds 2,000 characters');
     if ([item.optiona,item.optionb,item.optionc,item.optiond].some(v => v.length > 500)) item.errors.push('Option exceeds 500 characters');
     if (item.explanation.length > 1000) item.errors.push('Explanation exceeds 1,000 characters');
+    if (JSON.stringify({A:item.optiona,B:item.optionb,C:item.optionc,D:item.optiond}).length > 1000) item.errors.push('Combined options exceed the database limit (1,000 characters)');
+    if (item.topic.length > 200) item.errors.push('Topic exceeds 200 characters');
     return item;
   }
   function previewRows() {
