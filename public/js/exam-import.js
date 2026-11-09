@@ -118,5 +118,12 @@
     else if (!Number.isInteger(passingScore) || passingScore < 0 || passingScore > 100) error = 'Pass score must be 0–100';
     return {line,name,subject,duration,totalQuestions,passingScore,error};
   }
-  window.ExamImport = {open};
+  function template() {
+    if (!window.XLSX) return alert('Excel template generator did not load.');
+    const rows = [['Exam Name','Subject','Duration','Total Questions','Pass Score'],['Biology Mock Examination','Biology',60,50,50]];
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(rows), 'Exams');
+    XLSX.writeFile(book, 'softly-cbt-exam-template.xlsx');
+  }
+  window.ExamImport = {open, template};
 })();
