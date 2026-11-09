@@ -172,8 +172,11 @@
         if (seen.has(fingerprint)) { duplicates++; r.importError = 'Duplicate question in this file'; continue; }
         seen.add(fingerprint);
         try {
-          const existing = await DB.list(SD.COL.QUESTIONS, [SD.Q.equal('text',r.question)], 1);
-          if (existing.total > 0) { duplicates++; r.importError = 'Already exists in question bank'; continue; }
+          const existing = await DB.list(SD.COL.QUESTIONS, [SD.Q.search('text', r.question)], 20);
+          const exactDuplicate = (existing.documents || []).some(question =>
+            String(question.text || '').toLowerCase().replace(/\\s+/g, ' ').trim() === fingerprint
+          );
+          if (exactDuplicate) { duplicates++; r.importError = 'Already exists in question bank'; continue; }
           const subject = r.subject ? subjects.find(s => s.name.toLowerCase() === r.subject.toLowerCase()) : fallback;
           if (!subject) { failed++; r.importError = 'Subject "' + r.subject + '" does not exist'; continue; }
           if (!topicCache.has(subject.$id)) {
