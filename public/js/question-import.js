@@ -3,9 +3,9 @@
   'use strict';
   const MAX_BYTES = 15 * 1024 * 1024, MAX_ROWS = 2000;
   const ALIASES = {
-    question:['question','questiontext','text'], optiona:['optiona','a','option1','choicea'],
-    optionb:['optionb','b','option2','choiceb'], optionc:['optionc','c','option3','choicec'],
-    optiond:['optiond','d','option4','choiced'], correctanswer:['correctanswer','correct','answer','key'],
+    question:['question','questiontext','text','stem'], optiona:['optiona','optionatext','a','option1','choicea','choice1'],
+    optionb:['optionb','optionbtext','b','option2','choiceb','choice2'], optionc:['optionc','optionctext','c','option3','choicec','choice3'],
+    optiond:['optiond','optiondtext','d','option4','choiced','choice4'], correctanswer:['correctanswer','correctoption','correctchoice','correct','answer','key'],
     subject:['subject','subjectname'], topic:['topic','topicname'],
     difficulty:['difficulty','level'], explanation:['explanation','solution','rationale']
   };
@@ -17,7 +17,7 @@
     if (el) return el;
     el = document.createElement('div');
     el.id = 'questionImportModal'; el.className = 'modal';
-    el.innerHTML = \`
+    el.innerHTML = `
       <div class="modal-content wide-modal" style="width:min(1080px,96vw);max-height:92vh;overflow:auto">
         <div class="modal-header"><h2>Import Questions</h2><button type="button" class="modal-close" data-close>✕</button></div>
         <div class="modal-form">
@@ -37,7 +37,7 @@
             <button type="button" class="btn-primary" id="qiImport" disabled>Import valid questions</button>
           </div>
         </div>
-      </div>\`;
+      </div>`;
     document.body.appendChild(el);
     el.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', close));
     el.querySelector('#qiFile').addEventListener('change', readFile);
@@ -97,10 +97,11 @@
     if (!entry) throw new Error('Invalid .docx document.');
     const xml = new DOMParser().parseFromString(await entry.async('text'), 'application/xml');
     if (xml.querySelector('parsererror')) throw new Error('Word document XML is invalid.');
-    const trs = Array.from(xml.getElementsByTagName('w:tr'));
-    const table = trs.map(tr => Array.from(tr.getElementsByTagName('w:tc')).map(tc => wordText(tc))).filter(r => r.some(Boolean));
+    const byLocalName = name => Array.from(xml.getElementsByTagNameNS('*', name));
+    const trs = byLocalName('tr');
+    const table = trs.map(tr => Array.from(tr.getElementsByTagNameNS('*', 'tc')).map(tc => wordText(tc))).filter(r => r.some(Boolean));
     if (table.length) return matrixToRows(table);
-    const paragraphs = Array.from(xml.getElementsByTagName('w:p')).map(wordText).filter(Boolean);
+    const paragraphs = byLocalName('p').map(wordText).filter(Boolean);
     const result = []; let current = {};
     const labels = {'question':'question','question text':'question','option a':'optiona','a':'optiona','a)':'optiona','a.':'optiona','option b':'optionb','b':'optionb','b)':'optionb','b.':'optionb','option c':'optionc','c':'optionc','c)':'optionc','c.':'optionc','option d':'optiond','d':'optiond','d)':'optiond','d.':'optiond','correct answer':'correctanswer','answer':'correctanswer','subject':'subject','topic':'topic','difficulty':'difficulty','explanation':'explanation'};
     for (const p of paragraphs) {
@@ -113,7 +114,7 @@
     if (current.question) result.push(current);
     return result;
   }
-  function wordText(node) { return Array.from(node.getElementsByTagName('w:t')).map(t => t.textContent || '').join('').replace(/\u00a0/g,' ').trim(); }
+  function wordText(node) { return Array.from(node.getElementsByTagNameNS('*', 't')).map(t => t.textContent || '').join('').replace(/\u00a0/g,' ').trim(); }
   function matrixToRows(matrix) {
     const values = matrix.map(row => row.map(cell => String(cell ?? '').trim()));
     const headerIndex = values.findIndex(row => row.map(normalize).includes('question') && row.map(normalize).includes('optiona'));
@@ -126,11 +127,11 @@
     });
   }
   function normalize(value) { return String(value || '').toLowerCase().replace(/[^a-z0-9]/g,''); }
-  function canonical(header) { for (const [key, list] of Object.entries(ALIASES)) if (list.includes(header)) return key; return ''; }
+  function canonical(header) { const value = normalize(header); for (const [key, list] of Object.entries(ALIASES)) if (list.some(alias => normalize(alias) === value)) return key; return ''; }
   function validate(source, line) {
     const get = key => String(source[key] ?? '').trim();
     const answer = get('correctanswer').toUpperCase().replace(/[^A-D]/g,'');
-    const item = {line, question:get('question'), optiona:get('optiona'), optionb:get('optionb'), optionc:get('optionc'), optiond:get('optiond'), correctanswer:answer, subject:get('subject'), topic:get('topic'), difficulty:['easy','medium','hard'].includes(get('difficulty').toLowerCase()) ? get('difficulty').toLowerCase() : 'medium', explanation:get('explanation'), errors:[]};
+    const item = {line, question:get('question'), optiona:get('optiona'), optionb:get('optionb'), optionc:get('optionc'), optiond:get('optiond'), correctanswer:answer, subject:get('subject'), topic:get('topic'), difficulty:['easy','medium','hard'].includes(get('difficulty').toLowerCase()) ? get('difficulty').toLowerCase() : 'medium', explanation:get('explanation'), errors:[], importError:''};
     if (!item.question) item.errors.push('Question is empty');
     if (![item.optiona,item.optionb,item.optionc,item.optiond].every(Boolean)) item.errors.push('All four options are required');
     if (!['A','B','C','D'].includes(answer)) item.errors.push('Correct Answer must be A, B, C or D');
@@ -142,35 +143,39 @@
     return item;
   }
   function previewRows() {
-    const el = modal(), good = rows.filter(r => !r.errors.length), bad = rows.length - good.length;
-    el.querySelector('#qiPreview').innerHTML = \`
-      <p><strong>\${rows.length} rows</strong> · <span style="color:#16803c">\${good.length} valid</span> · <span style="color:#b45309">\${bad} invalid</span></p>
-      <table class="admin-table" style="min-width:740px"><thead><tr><th>Row</th><th>Question</th><th>Subject</th><th>Answer</th><th>Check</th></tr></thead><tbody>
-      \${rows.slice(0,30).map(r => \`<tr><td>\${r.line}</td><td>\${escape(r.question.slice(0,100))}</td><td>\${escape(r.subject || 'Default subject')}</td><td>\${escape(r.correctanswer)}</td><td style="color:\${r.errors.length?'#b91c1c':'#16803c'}">\${r.errors.length?escape(r.errors.join('; ')):'Ready'}</td></tr>\`).join('')}
-      </tbody></table>\${rows.length>30?'<p class="field-hint">Showing first 30 rows.</p>':''}\`;
+    const el = modal(), good = rows.filter(r => !r.errors.length && !r.importError), bad = rows.length - good.length;
+    const body = rows.slice(0, 30).map(r => {
+      const problem = r.errors.length ? r.errors.join('; ') : (r.importError || 'Ready');
+      const color = r.errors.length || r.importError ? '#b91c1c' : '#16803c';
+      return '<tr><td>' + r.line + '</td><td>' + escape(r.question.slice(0,100)) + '</td><td>' + escape(r.subject || 'Default subject') + '</td><td>' + escape(r.correctanswer) + '</td><td style="color:' + color + '">' + escape(problem) + '</td></tr>';
+    }).join('');
+    el.querySelector('#qiPreview').innerHTML = '<p><strong>' + rows.length + ' rows</strong> · <span style="color:#16803c">' + good.length + ' ready</span> · <span style="color:#b45309">' + bad + ' invalid or skipped</span></p>' +
+      '<table class="admin-table" style="min-width:740px"><thead><tr><th>Row</th><th>Question</th><th>Subject</th><th>Answer</th><th>Check</th></tr></thead><tbody>' + body + '</tbody></table>' +
+      (rows.length > 30 ? '<p class="field-hint">Showing first 30 rows.</p>' : '');
     el.querySelector('#qiImport').disabled = !good.length;
-    status(good.length + ' valid and ' + bad + ' invalid rows. Invalid rows will not be imported.');
+    status(good.length + ' ready and ' + bad + ' invalid or skipped rows.');
   }
   async function saveRows() {
     if (busy || !allowed()) return alert('Your account cannot import questions.');
     const el = modal(), subjectId = el.querySelector('#qiSubject').value;
     const subjectResult = await DB.list(SD.COL.SUBJECTS, [SD.Q.orderAsc('name')], 500);
     const subjects = subjectResult.documents || [], fallback = subjects.find(s => s.$id === subjectId);
-    if (!fallback) return status('Select a valid default subject.', true);
+    if (!fallback && rows.some(r => !r.errors.length && !r.subject)) return status('Select a default subject or provide a Subject value for every row.', true);
     const valid = rows.filter(r => !r.errors.length);
     if (!valid.length) return;
+    valid.forEach(r => { r.importError = ''; });
     busy = true; const button = el.querySelector('#qiImport'); button.disabled = true; button.textContent = 'Importing…';
     let added = 0, duplicates = 0, failed = 0; const seen = new Set();
     try {
       for (let i=0; i<valid.length; i++) {
         const r = valid[i], fingerprint = r.question.toLowerCase().replace(/\s+/g,' ').trim();
-        if (seen.has(fingerprint)) { duplicates++; continue; }
+        if (seen.has(fingerprint)) { duplicates++; r.importError = 'Duplicate question in this file'; continue; }
         seen.add(fingerprint);
         try {
           const existing = await DB.list(SD.COL.QUESTIONS, [SD.Q.equal('text',r.question)], 1);
-          if (existing.total > 0) { duplicates++; continue; }
+          if (existing.total > 0) { duplicates++; r.importError = 'Already exists in question bank'; continue; }
           const subject = r.subject ? subjects.find(s => s.name.toLowerCase() === r.subject.toLowerCase()) : fallback;
-          if (!subject) { failed++; r.errors.push('Subject "' + r.subject + '" does not exist'); continue; }
+          if (!subject) { failed++; r.importError = 'Subject "' + r.subject + '" does not exist'; continue; }
           await DB.create(SD.COL.QUESTIONS, {
             text:r.question, optionA:r.optiona, optionB:r.optionb, optionC:r.optionc, optionD:r.optiond,
             options:JSON.stringify({A:r.optiona,B:r.optionb,C:r.optionc,D:r.optiond}),
@@ -178,15 +183,16 @@
             topicId:'', topic:r.topic, difficulty:r.difficulty, explanation:r.explanation, examCount:0
           });
           added++;
-        } catch (error) { failed++; r.errors.push(error.message || 'Database write failed'); }
+        } catch (error) { failed++; r.importError = error.message || 'Database write failed'; }
         if ((i+1)%5===0 || i===valid.length-1) status('Importing ' + (i+1) + '/' + valid.length + ' · Added ' + added + ' · Duplicates ' + duplicates + ' · Failed ' + failed);
       }
       if (added && typeof window.audit === 'function') { try { await window.audit('QUESTIONS_IMPORTED',{added,duplicates,failed,fileName:sourceFile?.name || ''}); } catch (_) {} }
+      previewRows();
       status('Import complete. Added: ' + added + '. Duplicates: ' + duplicates + '. Failed: ' + failed + '.', failed>0);
       alert('Import complete\n\nAdded: ' + added + '\nDuplicates skipped: ' + duplicates + '\nFailed: ' + failed);
       if (added && window.QuestionManager) QuestionManager.load(0);
     } catch (error) { status('Import stopped: ' + error.message, true); }
-    finally { busy = false; button.disabled = !rows.some(r => !r.errors.length); button.textContent = 'Import valid questions'; }
+    finally { busy = false; button.disabled = !rows.some(r => !r.errors.length && !r.importError); button.textContent = 'Retry remaining valid questions'; }
   }
   function template() {
     if (!window.XLSX) return alert('Excel template generator did not load.');
