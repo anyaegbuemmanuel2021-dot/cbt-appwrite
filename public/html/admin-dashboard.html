@@ -224,7 +224,7 @@
       <div class="mod-header">
         <h2>❓ Question Bank</h2>
         <div>
-          <button class="btn-outline-sm" onclick="QuestionManager.importExcel()">📥 Excel Import</button>
+          <button class="btn-outline-sm" data-perm="uploadFiles" onclick="QuestionImport.open()">📥 Import Excel / Word</button>
           <button class="btn-primary-sm" onclick="QuestionManager.showAdd()">+ Add Question</button>
         </div>
       </div>
@@ -718,6 +718,7 @@
   <script src="../js/managers.js"></script>
   <script src="../js/candidate-manager.js"></script>
   <script src="../js/question-manager.js"></script>
+  <script src="../js/question-import.js"></script>
   <script src="../js/ai-module.js"></script>
   <script src="../js/analytics-manager.js"></script>
   <script src="../js/notification-manager.js"></script>
