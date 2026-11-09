@@ -117,7 +117,7 @@
   function wordText(node) { return Array.from(node.getElementsByTagNameNS('*', 't')).map(t => t.textContent || '').join('').replace(/\u00a0/g,' ').trim(); }
   function matrixToRows(matrix) {
     const values = matrix.map(row => row.map(cell => String(cell ?? '').trim()));
-    const headerIndex = values.findIndex(row => row.map(normalize).includes('question') && row.map(normalize).includes('optiona'));
+    const headerIndex = values.findIndex(row => row.some(cell => canonical(cell) === 'question') && row.some(cell => canonical(cell) === 'optiona'));
     if (headerIndex < 0) throw new Error('Header row not found. Use the provided template or a Word table with column headings.');
     const headers = values[headerIndex].map(normalize);
     return values.slice(headerIndex + 1).filter(row => row.some(Boolean)).map(row => {
@@ -165,7 +165,7 @@
     if (!valid.length) return;
     valid.forEach(r => { r.importError = ''; });
     busy = true; const button = el.querySelector('#qiImport'); button.disabled = true; button.textContent = 'Importing…';
-    let added = 0, duplicates = 0, failed = 0; const seen = new Set();
+    let added = 0, duplicates = 0, failed = 0; const seen = new Set(), topicCache = new Map();
     try {
       for (let i=0; i<valid.length; i++) {
         const r = valid[i], fingerprint = r.question.toLowerCase().replace(/\s+/g,' ').trim();
@@ -176,11 +176,17 @@
           if (existing.total > 0) { duplicates++; r.importError = 'Already exists in question bank'; continue; }
           const subject = r.subject ? subjects.find(s => s.name.toLowerCase() === r.subject.toLowerCase()) : fallback;
           if (!subject) { failed++; r.importError = 'Subject "' + r.subject + '" does not exist'; continue; }
+          if (!topicCache.has(subject.$id)) {
+            const topicResult = await DB.list(SD.COL.TOPICS, [SD.Q.equal('subjectId', subject.$id)], 500);
+            topicCache.set(subject.$id, topicResult.documents || []);
+          }
+          const topic = r.topic ? topicCache.get(subject.$id).find(t => t.name.toLowerCase() === r.topic.toLowerCase()) : null;
           await DB.create(SD.COL.QUESTIONS, {
             text:r.question, optionA:r.optiona, optionB:r.optionb, optionC:r.optionc, optionD:r.optiond,
             options:JSON.stringify({A:r.optiona,B:r.optionb,C:r.optionc,D:r.optiond}),
             correctAnswer:r.correctanswer, subjectId:subject.$id, subject:subject.name,
-            topicId:'', topic:r.topic, difficulty:r.difficulty, explanation:r.explanation, examCount:0
+            topicId:topic?.$id || '', topic:r.topic || topic?.name || '',
+            difficulty:r.difficulty, explanation:r.explanation, examCount:0
           });
           added++;
         } catch (error) { failed++; r.importError = error.message || 'Database write failed'; }
