@@ -57,7 +57,7 @@
       }
       if (added && typeof window.audit === 'function') { try { await window.audit('EXAMS_IMPORTED', {added,duplicates,failed,fileName:file.name}); } catch (_) {} }
       alert('Exam import finished.\n\nAdded: ' + added + '\nDuplicates skipped: ' + duplicates + '\nInvalid rows: ' + invalid.length + '\nDatabase failures: ' + failed);
-      if (added && window.ExamManager) ExamManager.load();
+      if (added && typeof ExamManager !== 'undefined') ExamManager.load();
     } catch (error) { alert('Exam import failed: ' + (error.message || error)); }
   }
   async function readExcel(file) {
