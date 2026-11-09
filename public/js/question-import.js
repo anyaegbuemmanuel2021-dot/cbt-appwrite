@@ -198,7 +198,7 @@
       alert('Import complete\n\nAdded: ' + added + '\nDuplicates skipped: ' + duplicates + '\nFailed: ' + failed);
       if (added && typeof QuestionManager !== 'undefined') QuestionManager.load(0);
     } catch (error) { status('Import stopped: ' + error.message, true); }
-    finally { busy = false; button.disabled = !rows.some(r => !r.errors.length && !r.importError); button.textContent = 'Retry remaining valid questions'; }
+    finally { busy = false; button.disabled = !rows.some(r => !r.errors.length); button.textContent = 'Retry valid questions'; }
   }
   function template() {
     if (!window.XLSX) return alert('Excel template generator did not load.');
